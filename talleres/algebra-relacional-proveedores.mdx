@@ -1,0 +1,273 @@
+---
+title: "Álgebra Relacional: Taller Proveedores, Piezas y Proyectos"
+sidebarTitle: "Taller Proveedores"
+description: "Ejercicios de álgebra relacional con el dataset clásico S-P-J (Proveedores, Piezas, Proyectos): selección, proyección, join y producto cartesiano en RelaX."
+---
+
+El dataset **S-P-J** (Suppliers–Parts–Jobs) es uno de los ejemplos canónicos de la teoría relacional, introducido por C. J. Date en su texto clásico *An Introduction to Database Systems*. Modela una cadena de suministro simplificada donde proveedores (S) surten piezas (P) a proyectos de construcción (J), y la relación ternaria SPJ registra cada suministro con su cantidad. Su estructura sencilla pero expresiva lo convierte en el punto de partida ideal para practicar selección, proyección, join y producto cartesiano en **RelaX**.
+
+## Herramienta
+
+<Card title="RelaX — Relational Algebra Calculator" icon="arrow-up-right-from-square" href="https://dbis-uibk.github.io/relax/">
+  Calculadora interactiva de álgebra relacional con soporte para definir grupos de relaciones propios.
+</Card>
+
+## Dataset: TallerProveedores
+
+### Relaciones del dataset
+
+| Relación | Significado | Atributos clave |
+|---|---|---|
+| **S** | Proveedores (Suppliers) | `s` (ID), `noms` (nombre), `estado`, `ciudad` |
+| **P** | Piezas (Parts) | `p` (ID), `nomp` (nombre), `color`, `peso`, `ciudad` |
+| **J** | Proyectos (Jobs) | `j` (ID), `nomj` (nombre), `ciudad` |
+| **SPJ** | Suministros | `s`, `p`, `j` (FK a cada relación), `cant` (cantidad) |
+
+La relación `SPJ` es la pieza central: cada fila indica que el proveedor `s` suministró `cant` unidades de la pieza `p` al proyecto `j`.
+
+### Cargar el dataset en RelaX
+
+<Steps>
+  <Step title="Abrir el Group Editor">
+    En RelaX, selecciona **"Group Editor"** en la barra de navegación superior.
+  </Step>
+  <Step title="Pegar la definición completa">
+    Elimina el contenido de ejemplo y pega el bloque siguiente en su totalidad.
+  </Step>
+  <Step title="Activar el grupo">
+    Pulsa **"use this group"**. Las relaciones S, P, J y SPJ quedarán disponibles para consultas.
+  </Step>
+</Steps>
+
+```text
+group: TallerProveedores
+description: Base de datos para ejercicios de álgebra relacional (S, P, J, SPJ)
+
+S = {
+s:string, noms:string, estado:number, ciudad:string
+
+"S1", "Smith", 20, "Londres"
+"S2", "Jones", 10, "París"
+"S3", "Blake", 30, "París"
+"S4", "Clark", 20, "Londres"
+"S5", "Adams", 30, "Atenas"
+}
+
+P = {
+p:string, nomp:string, color:string, peso:number, ciudad:string
+
+"P1", "Mesa", "rojo", 12, "Londres"
+"P2", "Silla", "blanca", 17, "París"
+"P3", "Armario", "gris", 17, "Roma"
+"P4", "Archivador", "rojo", 14, "Londres"
+"P5", "Puerta", "blanca", 12, "París"
+"P6", "Lámpara", "amarilla", 19, "Londres"
+}
+
+J = {
+j:string, nomj:string, ciudad:string
+
+"J1", "Edificio 1", "París"
+"J2", "Edificio 2", "Roma"
+"J3", "Edificio 3", "Atenas"
+"J4", "Edificio 4", "Atenas"
+"J5", "Edificio 5", "Londres"
+"J6", "Edificio 6", "Madrid"
+"J7", "Edificio 7", "Londres"
+}
+
+SPJ = {
+s:string, p:string, j:string, cant:number
+
+"S1", "P1", "J1", 200
+"S1", "P1", "J4", 200
+"S1", "P1", "J5", 700
+"S2", "P3", "J1", 400
+"S2", "P3", "J2", 200
+"S3", "P3", "J1", 200
+"S3", "P4", "J2", 500
+"S4", "P6", "J3", 300
+"S4", "P6", "J7", 300
+"S1", "P3", "J7", 70
+}
+```
+
+---
+
+## Ejercicios
+
+<Note>
+  En RelaX, los joins con condición explícita se escriben como `R ⨝ R.atributo=S.atributo S`. Cuando dos relaciones tienen un atributo con **el mismo nombre**, el join natural (⨝ sin condición) los une automáticamente por ese atributo. Si los nombres difieren o hay ambigüedad, especifica siempre la condición completa: `S ⨝ S.s=SPJ.s SPJ`.
+</Note>
+
+<Tabs>
+  <Tab title="Básico — Selección y Proyección">
+    Los primeros ejercicios trabajan sobre una sola relación: aplica σ para filtrar filas y π para elegir columnas.
+
+    <AccordionGroup>
+
+      <Accordion title="Ejercicio 1 — Proveedores de Londres">
+        **Enunciado:** Lista todos los proveedores cuya ciudad sea Londres.
+
+        ```text
+        σ ciudad='Londres' (S)
+        ```
+
+        **Resultado esperado:** S1 (Smith), S4 (Clark) — ambos con ciudad = Londres.
+      </Accordion>
+
+      <Accordion title="Ejercicio 2 — Nombres de piezas rojas">
+        **Enunciado:** Obtén únicamente los nombres de las piezas que tienen color rojo.
+
+        ```text
+        π nomp (σ color='rojo' (P))
+        ```
+
+        **Paso a paso:**
+        1. `σ color='rojo' (P)` → filtra: Mesa (P1), Archivador (P4).
+        2. `π nomp (...)` → extrae solo el nombre de la pieza.
+
+        **Resultado esperado:** Mesa, Archivador.
+      </Accordion>
+
+      <Accordion title="Ejercicio 3 — Proyectos en Atenas">
+        **Enunciado:** Lista todos los proyectos ubicados en Atenas.
+
+        ```text
+        σ ciudad='Atenas' (J)
+        ```
+
+        **Resultado esperado:** J3 (Edificio 3), J4 (Edificio 4).
+      </Accordion>
+
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="Intermedio — Join">
+    Los ejercicios intermedios combinan dos o tres relaciones mediante join. Recuerda que S, P, J y SPJ comparten claves que permiten enlazarlas.
+
+    <AccordionGroup>
+
+      <Accordion title="Ejercicio 4 — Proveedores que suministran la pieza P1">
+        **Enunciado:** Encuentra los nombres de los proveedores que suministran la pieza identificada como P1.
+
+        ```text
+        π S.noms (S ⨝ S.s=SPJ.s σ p='P1' (SPJ))
+        ```
+
+        **Paso a paso:**
+        1. `σ p='P1' (SPJ)` → suministros de P1: filas con S1/P1/J1, S1/P1/J4, S1/P1/J5.
+        2. `S ⨝ S.s=SPJ.s ...` → join por el identificador de proveedor.
+        3. `π S.noms (...)` → extrae el nombre del proveedor.
+
+        **Resultado esperado:** Smith.
+      </Accordion>
+
+      <Accordion title="Ejercicio 5 — Ciudades de proveedores y proyectos relacionados">
+        **Enunciado:** Obtén todas las combinaciones de ciudad de proveedor y ciudad de proyecto para cada suministro registrado.
+
+        ```text
+        π S.ciudad, J.ciudad ((S ⨝ S.s=SPJ.s SPJ) ⨝ SPJ.j=J.j J)
+        ```
+
+        **Paso a paso:**
+        1. `S ⨝ S.s=SPJ.s SPJ` → combina proveedores con sus suministros.
+        2. `... ⨝ SPJ.j=J.j J` → agrega la información del proyecto correspondiente.
+        3. `π S.ciudad, J.ciudad (...)` → proyecta solo las dos ciudades.
+
+        **Resultado esperado:** pares como (Londres, París), (Londres, Atenas), (París, París), (París, Roma), (Atenas, Atenas), (Londres, Madrid), (Londres, Londres).
+      </Accordion>
+
+      <Accordion title="Ejercicio 6 — Piezas suministradas por proveedores de Londres">
+        **Enunciado:** Obtén los nombres de las piezas que han sido suministradas por algún proveedor ubicado en Londres.
+
+        **Estrategia:** Encadena tres joins: S → SPJ → P. Filtra proveedores de Londres antes del primer join para reducir el tamaño intermedio.
+
+        ```text
+        π P.nomp (σ S.ciudad='Londres' (S) ⨝ S.s=SPJ.s SPJ ⨝ SPJ.p=P.p P)
+        ```
+
+        **Paso a paso:**
+        1. `σ S.ciudad='Londres' (S)` → S1 (Smith), S4 (Clark).
+        2. Join con SPJ por `S.s=SPJ.s` → suministros de esos dos proveedores.
+        3. Join con P por `SPJ.p=P.p` → agrega información de la pieza.
+        4. `π P.nomp (...)` → extrae el nombre.
+
+        **Resultado esperado:** Mesa (P1), Armario (P3), Lámpara (P6).
+      </Accordion>
+
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="Avanzado — Producto Cartesiano y Self-Join">
+    Los ejercicios avanzados exploran el producto cartesiano (×) y el comportamiento del join natural cuando los nombres de columnas coinciden.
+
+    <AccordionGroup>
+
+      <Accordion title="Ejercicio 7 — Producto cartesiano de ciudades de S y P">
+        **Enunciado:** Genera todas las combinaciones posibles entre ciudades de proveedores y ciudades de piezas.
+
+        ```text
+        π ciudad (S) × π ciudad (P)
+        ```
+
+        **Qué produce el producto cartesiano:** Si S tiene ciudades `{Londres, París, Atenas}` (3 valores distintos) y P tiene ciudades `{Londres, París, Roma}` (3 valores distintos), el producto cartesiano produce **9 filas** con todas las combinaciones posibles.
+
+        **Tabla de resultado:**
+
+        | S.ciudad | P.ciudad |
+        |---|---|
+        | Londres | Londres |
+        | Londres | París |
+        | Londres | Roma |
+        | París | Londres |
+        | París | París |
+        | París | Roma |
+        | Atenas | Londres |
+        | Atenas | París |
+        | Atenas | Roma |
+
+        <Note>
+          El producto cartesiano no filtra ni empareja: combina **cada fila** del primer operando con **cada fila** del segundo. Para obtener solo las combinaciones significativas, aplica una selección sobre el resultado: `σ S.ciudad=P.ciudad (π ciudad (S) × π ciudad (P))`, que equivale a un self-join por ciudad.
+        </Note>
+      </Accordion>
+
+      <Accordion title="Ejercicio 8 — Join natural S ⨝ SPJ">
+        **Enunciado:** ¿Qué ocurre al hacer el join natural entre S y SPJ?
+
+        ```text
+        S ⨝ SPJ
+        ```
+
+        **Análisis:** Tanto S como SPJ tienen el atributo `s`. El join natural une automáticamente las filas donde `S.s = SPJ.s`, produciendo una relación que incluye todos los atributos de S y SPJ sin duplicar la columna `s`.
+
+        **Resultado:** Cada suministro en SPJ queda enriquecido con el nombre, estado y ciudad del proveedor correspondiente.
+
+        | s | noms | estado | ciudad | p | j | cant |
+        |---|---|---|---|---|---|---|
+        | S1 | Smith | 20 | Londres | P1 | J1 | 200 |
+        | S1 | Smith | 20 | Londres | P1 | J4 | 200 |
+        | S1 | Smith | 20 | Londres | P1 | J5 | 700 |
+        | S2 | Jones | 10 | París | P3 | J1 | 400 |
+        | S3 | Blake | 30 | París | P3 | J1 | 200 |
+        | ... | ... | ... | ... | ... | ... | ... |
+
+        **Comparación con S ⨝ P (join entre dos relaciones sin atributo común):**
+        S y P **no comparten ningún atributo**, por lo que `S ⨝ P` produce exactamente el mismo resultado que `S × P` (producto cartesiano): 5 proveedores × 6 piezas = **30 filas**, con todos los atributos de ambas relaciones.
+      </Accordion>
+
+    </AccordionGroup>
+  </Tab>
+</Tabs>
+
+---
+
+## Resumen de operadores usados
+
+| Operador | Símbolo | Ejemplo en este taller |
+|---|---|---|
+| Selección | σ | `σ ciudad='Londres' (S)` |
+| Proyección | π | `π nomp (P)` |
+| Join con condición | ⨝ cond | `S ⨝ S.s=SPJ.s SPJ` |
+| Join natural | ⨝ | `S ⨝ SPJ` (une por `s`) |
+| Producto cartesiano | × | `π ciudad (S) × π ciudad (P)` |

@@ -1,0 +1,182 @@
+---
+title: "Proyecto Final: Base de Datos Híbrida Relacional y Vectorial"
+sidebarTitle: "Proyecto Final"
+description: "Lineamientos del proyecto final del curso: diseña e implementa una base de datos híbrida que combine PostgreSQL relacional con pgvector para búsqueda semántica."
+---
+
+El proyecto final del curso **Bases de Datos Relacionales 2026-I** consiste en diseñar e implementar un sistema de base de datos híbrida que combina un esquema relacional completo en PostgreSQL con capacidades de búsqueda semántica mediante la extensión **pgvector**. El objetivo es que los estudiantes demuestren dominio tanto del modelado relacional clásico (EER, normalización, DDL/DML, consultas SQL) como de las técnicas modernas de almacenamiento y consulta de embeddings vectoriales, integrando ambos paradigmas en una sola aplicación coherente.
+
+## Objetivo del Proyecto
+
+Construir la base de datos de una aplicación del mundo real que almacene datos estructurados en tablas relacionales **y** utilice embeddings vectoriales para habilitar consultas de similitud semántica. El sistema debe responder tanto a preguntas relacionales clásicas (filtros, agregaciones, JOINs) como a preguntas del tipo "encuentra registros parecidos a este texto o concepto".
+
+## Entregables
+
+<Steps>
+  <Step title="Universo de Discurso">
+    Documento de una a dos páginas que describe el dominio del problema: entidades principales, reglas de negocio, restricciones y el tipo de consultas semánticas que justifican el uso de pgvector.
+  </Step>
+  <Step title="Diagrama EER en draw.io">
+    Modelo Entidad-Relación Extendido que incluya entidades, atributos (simples, compuestos y derivados), relaciones con cardinalidades, especializaciones/generalizaciones y entidades débiles cuando aplique. Exportar como PNG y como archivo `.drawio`.
+  </Step>
+  <Step title="Modelo Relacional (3FN)">
+    Derivación formal del EER al modelo relacional: listado de tablas con sus atributos, claves primarias, claves foráneas y justificación de que el esquema cumple la Tercera Forma Normal.
+  </Step>
+  <Step title="Scripts DDL">
+    Archivo SQL con todos los `CREATE TABLE`, restricciones `NOT NULL`, `UNIQUE`, `CHECK`, claves primarias y foráneas, índices y la habilitación de la extensión `vector`. El script debe ejecutarse sin errores en PostgreSQL 15+.
+  </Step>
+  <Step title="Scripts DML">
+    Archivo SQL con sentencias `INSERT` que poblen cada tabla principal con **mínimo 20 filas representativas**. Los datos deben ser coherentes con el dominio y deben incluir al menos un lote de vectores de embeddings pre-calculados.
+  </Step>
+  <Step title="Consultas SQL (mínimo 10)">
+    Archivo SQL documentado con al menos: 3 consultas simples, 4 consultas con `JOIN` (incluyendo al menos un `LEFT JOIN`), 2 consultas con subconsultas correlacionadas o no correlacionadas, y 1 consulta con funciones de agregación y cláusula `HAVING`.
+  </Step>
+  <Step title="Integración pgvector">
+    Al menos una tabla con columna de tipo `vector`, scripts de inserción de embeddings y **mínimo 3 consultas de similitud** usando los operadores `<=>` (coseno), `<->` (euclidiana) o `<#>` (producto interno), con justificación de la métrica elegida.
+  </Step>
+  <Step title="Diccionario de Datos (HTML)">
+    Página HTML estática que documente cada tabla: nombre, descripción, listado de columnas con tipo de dato, restricciones y descripción funcional.
+  </Step>
+  <Step title="Informe Técnico">
+    Documento PDF (máximo 15 páginas) que integre todos los entregables anteriores, explique las decisiones de diseño y analice los resultados de las consultas semánticas.
+  </Step>
+</Steps>
+
+## Criterios de Evaluación
+
+| Criterio | Peso |
+|---|---|
+| Diagrama EER (corrección, completitud, notación) | 20 % |
+| Scripts DDL y DML (sintaxis, restricciones, datos) | 25 % |
+| Consultas SQL (variedad, corrección, eficiencia) | 25 % |
+| Integración pgvector (esquema, consultas, análisis) | 20 % |
+| Documentación (diccionario de datos, informe técnico) | 10 % |
+
+## Dominios Sugeridos
+
+Puedes elegir cualquier dominio que justifique el uso de búsqueda semántica. Los siguientes son puntos de partida recomendados:
+
+<CardGroup cols={2}>
+  <Card title="E-commerce / Tienda Online" icon="cart-shopping">
+    Catálogo de productos con búsqueda semántica de artículos similares, historial de pedidos, clientes y reseñas.
+  </Card>
+  <Card title="Sistema Hospitalario" icon="hospital">
+    Pacientes, médicos, diagnósticos y búsqueda de casos clínicos similares por descripción de síntomas.
+  </Card>
+  <Card title="Plataforma Educativa" icon="graduation-cap">
+    Cursos, estudiantes, matrículas y motor de recomendación de contenidos por similitud semántica.
+  </Card>
+  <Card title="Red Social / Comunidad" icon="users">
+    Publicaciones, usuarios, seguidores y feed personalizado con búsqueda de posts relacionados.
+  </Card>
+  <Card title="Sistema de Reservas" icon="calendar-check">
+    Hoteles, aerolíneas o restaurantes con búsqueda de alojamientos u opciones según descripción libre.
+  </Card>
+  <Card title="Gestión de Inventario" icon="boxes-stacked">
+    Productos, proveedores, movimientos de stock y búsqueda semántica en descripciones y especificaciones técnicas.
+  </Card>
+</CardGroup>
+
+## Esquema Híbrido: Ejemplo Mínimo
+
+El siguiente fragmento ilustra cómo coexisten la parte relacional y la parte vectorial en el mismo esquema de PostgreSQL:
+
+```sql
+-- Parte relacional
+CREATE TABLE categorias (
+  id   SERIAL PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE articulos (
+  id           SERIAL PRIMARY KEY,
+  titulo       VARCHAR(200) NOT NULL,
+  contenido    TEXT,
+  categoria_id INTEGER REFERENCES categorias(id),
+  creado_en    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Parte vectorial (requiere pgvector)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE articulos
+  ADD COLUMN embedding vector(384);
+
+-- Índice IVFFlat para búsqueda aproximada eficiente
+CREATE INDEX ON articulos
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+-- Consulta de búsqueda semántica
+SELECT titulo,
+       contenido,
+       1 - (embedding <=> $1::vector) AS similitud
+FROM   articulos
+WHERE  categoria_id = $2          -- filtro relacional combinado
+ORDER  BY embedding <=> $1::vector
+LIMIT  10;
+```
+
+<Tip>
+  Para el componente vectorial puedes usar [Neon](https://neon.tech) en su capa gratuita: activa la extensión `pgvector` con un solo clic desde el panel de control y obtén una cadena de conexión lista para usar sin necesidad de instalar nada localmente.
+</Tip>
+
+## Proceso de Desarrollo
+
+Sigue este flujo iterativo para construir el proyecto de forma ordenada:
+
+<Steps>
+  <Step title="Definir el dominio">
+    Redacta el universo de discurso. Identifica al menos 6 entidades fuertes, sus atributos clave y las relaciones entre ellas. Responde: ¿qué preguntas semánticas debe responder el sistema?
+  </Step>
+  <Step title="Modelar el EER">
+    Construye el diagrama en draw.io. Verifica cardinalidades, total/parcialidad en especializaciones y que todas las entidades débiles tengan su entidad identificadora.
+  </Step>
+  <Step title="Derivar el modelo relacional">
+    Convierte el EER a tablas. Aplica las reglas de derivación para relaciones N:M, jerarquías y entidades débiles. Verifica 1FN, 2FN y 3FN.
+  </Step>
+  <Step title="Escribir los scripts DDL">
+    Implementa el esquema en PostgreSQL. Incluye restricciones `CHECK` y `NOT NULL` desde el inicio. Habilita `pgvector` y agrega la columna `vector` a la tabla que lo requiera.
+  </Step>
+  <Step title="Poblar la base de datos (DML)">
+    Inserta datos representativos. Para los embeddings, puedes generar vectores con la API de OpenAI, Cohere, o usar un modelo local como `sentence-transformers` en Python.
+  </Step>
+  <Step title="Desarrollar las consultas">
+    Escribe y prueba las 10 consultas SQL requeridas. Agrega las 3 consultas de similitud vectorial. Documenta cada consulta con su propósito y resultado esperado.
+  </Step>
+  <Step title="Elaborar la documentación">
+    Genera el diccionario de datos HTML. Redacta el informe técnico integrando capturas de los resultados de las consultas y un análisis de la utilidad de la búsqueda semántica en el dominio elegido.
+  </Step>
+</Steps>
+
+## Ejemplo de Generación de Embeddings
+
+```python
+# Ejemplo con sentence-transformers (modelo gratuito y local)
+from sentence_transformers import SentenceTransformer
+import psycopg2
+
+model = SentenceTransformer("all-MiniLM-L6-v2")  # vector de 384 dimensiones
+
+conn = psycopg2.connect("postgresql://user:pass@host/db")
+cur  = conn.cursor()
+
+cur.execute("SELECT id, titulo || ' ' || contenido FROM articulos")
+rows = cur.fetchall()
+
+for article_id, text in rows:
+    embedding = model.encode(text).tolist()
+    cur.execute(
+        "UPDATE articulos SET embedding = %s WHERE id = %s",
+        (embedding, article_id)
+    )
+
+conn.commit()
+cur.close()
+conn.close()
+```
+
+<Note>
+  **Fechas de entrega y formato de entrega:**
+  Todos los entregables deben subirse al repositorio del curso en GitHub antes de la fecha límite publicada en el aula virtual. El repositorio debe tener la siguiente estructura de carpetas: `eer/`, `sql/`, `diccionario/` e `informe/`. El informe técnico en formato PDF y el diagrama EER exportado como PNG son **obligatorios**; la ausencia de cualquiera de los dos entregables reduce la nota final en un 20 %.
+</Note>

@@ -1,47 +1,222 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Configura tu entorno para Bases de Datos Relacionales 2026-I"
+sidebarTitle: "Inicio rápido"
+description: "Configura PostgreSQL, Supabase, RelaX y draw.io en minutos para comenzar los talleres del curso de Bases de Datos Relacionales 2026-I."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+Esta guía te lleva paso a paso por la configuración de todas las herramientas que necesitas para los talleres de **Bases de Datos Relacionales 2026-I**. En menos de 15 minutos tendrás un proyecto de PostgreSQL en la nube (Supabase), tu primera tabla creada con SQL real del curso, la calculadora de álgebra relacional RelaX funcionando en el navegador y draw.io listo para construir diagramas EER. Al final encontrarás las instrucciones opcionales para el taller de pgvector con Google Colab.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Configuración del entorno
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Crea un proyecto gratuito en Supabase">
+    Supabase provee una instancia de PostgreSQL 15 completamente gestionada, accesible desde el navegador sin necesidad de instalar nada localmente.
 
-    ```bash
-    npm install your-package
-    ```
+    1. Ve a [supabase.com](https://supabase.com) y haz clic en **Start your project**.
+    2. Regístrate con tu cuenta de GitHub o correo electrónico universitario.
+    3. En el dashboard, haz clic en **New project**.
+    4. Completa el formulario:
+       - **Organization**: selecciona tu organización personal o crea una nueva.
+       - **Project name**: usa un nombre descriptivo, por ejemplo `bd-relacionales-2026`.
+       - **Database password**: elige una contraseña segura y **guárdala**; la necesitarás para conexiones externas.
+       - **Region**: selecciona la región más cercana (por ejemplo, `South America (São Paulo)`).
+    5. Haz clic en **Create new project** y espera ~2 minutos mientras Supabase aprovisiona la base de datos.
+
+    <Note>
+      El plan gratuito de Supabase incluye 500 MB de almacenamiento de base de datos, 2 GB de transferencia mensual y hasta 50.000 filas activas — más que suficiente para todos los talleres del curso.
+    </Note>
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
-    ```
+  <Step title="Accede al SQL Editor de Supabase">
+    Una vez creado el proyecto, abre el editor SQL integrado para ejecutar tus scripts directamente contra la base de datos.
+
+    1. En el menú lateral izquierdo del dashboard, haz clic en el ícono de **SQL Editor** (o navega a `Project > SQL Editor`).
+    2. Haz clic en **New query** para abrir una pestaña de consulta en blanco.
+    3. El editor soporta autocompletado de palabras clave SQL, historial de consultas y descarga de resultados en CSV.
+
+    <Tip>
+      Puedes guardar tus consultas frecuentes como **Snippets** usando el botón **Save** en el SQL Editor. Esto es muy útil para los scripts de los talleres: guarda cada archivo `.sql` del repositorio como un snippet con el nombre del taller correspondiente.
+    </Tip>
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Ejecuta tu primer script SQL">
+    Vamos a crear las tablas iniciales del curso directamente desde el SQL Editor. Estos scripts provienen de los archivos reales del repositorio del curso.
+
+    Comienza con la tabla de práctica más simple del curso, tomada de `Practicas/psql/table1.sql`:
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS table1 (
+      a VARCHAR(1),
+      b VARCHAR(1),
+      CONSTRAINT pk_table1 PRIMARY KEY (a)
+    );
+
+    INSERT INTO table1 (a, b)
+    VALUES ('a', 'b');
+    ```
+
+    Pega el código en el SQL Editor y haz clic en **Run** (o presiona `Ctrl+Enter` / `Cmd+Enter`). Deberías ver el mensaje `Success. No rows returned` para el `CREATE TABLE` y `1 row affected` para el `INSERT`.
+
+    A continuación, crea la tabla de alumnos utilizada en el Taller 3 (`Talleres/3-Taller-DML-DDL-Supabase-inicial/psql/alumnos.sql`), que ilustra el uso de restricciones `PRIMARY KEY` y `CHECK`:
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS alumnos (
+      cedula       VARCHAR(15)  NOT NULL,
+      nombre       VARCHAR(50)  NOT NULL,
+      apellido     VARCHAR(50)  NOT NULL,
+      direccion    VARCHAR(100),
+      sexo         VARCHAR(1),
+      fecha_nacimiento DATE
+    );
+
+    ALTER TABLE alumnos
+      ADD CONSTRAINT pk_alumno PRIMARY KEY (cedula);
+
+    ALTER TABLE alumnos
+      ADD CONSTRAINT ck_sexo CHECK (sexo IN ('H', 'M'));
+    ```
+
+    <CodeGroup>
+      ```sql Insertar alumno de prueba
+      INSERT INTO alumnos (cedula, nombre, apellido, direccion, sexo, fecha_nacimiento)
+      VALUES ('1234567890', 'María', 'González', 'Calle 45 # 12-30', 'M', '2000-03-15');
+      ```
+
+      ```sql Consultar todos los alumnos
+      SELECT cedula, nombre, apellido, sexo, fecha_nacimiento
+      FROM alumnos
+      ORDER BY apellido, nombre;
+      ```
+    </CodeGroup>
+
+    Verifica que la restricción `CHECK` funciona intentando insertar un valor inválido para `sexo`; PostgreSQL debe rechazar la operación:
+
+    ```sql
+    -- Esto debe fallar con: ERROR: new row for relation "alumnos" violates check constraint "ck_sexo"
+    INSERT INTO alumnos (cedula, nombre, apellido, sexo)
+    VALUES ('0000000001', 'Test', 'Error', 'X');
+    ```
+
+    <Note>
+      Todos los scripts SQL del curso están disponibles en el repositorio [tutosrive/db-relacionales-2026-1](https://github.com/tutosrive/db-relacionales-2026-1). Descarga o clona el repositorio para tener acceso a los archivos completos de cada taller y práctica.
+    </Note>
+  </Step>
+
+  <Step title="Configura RelaX para álgebra relacional">
+    RelaX es una calculadora de álgebra relacional que corre completamente en el navegador. Se usa en el **Taller 2** del curso para resolver consultas con notación formal (σ, π, ⨝, ρ, etc.) sin necesidad de SQL.
+
+    1. Abre [dbis-uibk.github.io/relax/](https://dbis-uibk.github.io/relax/) en tu navegador.
+    2. En el panel izquierdo (**Group editor**) define tus relaciones de prueba. Por ejemplo:
+
+    ```
+    group: Curso BD 2026
+
+    alumnos = {
+      cedula:string, nombre:string, apellido:string, sexo:string
+      '1234567890', 'María',  'González', 'M'
+      '0987654321', 'Carlos', 'Ramírez',  'H'
+      '1122334455', 'Ana',    'Torres',   'M'
+    }
+
+    inscripciones = {
+      cedula:string, curso:string
+      '1234567890', 'BD-2026'
+      '0987654321', 'BD-2026'
+    }
+    ```
+
+    3. Haz clic en **Execute group** para cargar las relaciones.
+    4. En el panel de consulta escribe una expresión de álgebra relacional:
+
+    ```
+    π cedula, nombre, apellido (σ sexo = 'M' (alumnos))
+    ```
+
+    5. Haz clic en **Execute** para ver el resultado tabulado.
+
+    <Tip>
+      RelaX acepta tanto la notación con símbolos Unicode (σ, π, ⨝) como la notación ASCII equivalente (`sigma`, `pi`, `join`). Usa la barra de herramientas del editor para insertar los símbolos sin necesitar teclado especial.
+    </Tip>
+  </Step>
+
+  <Step title="Configura draw.io para diagramas EER">
+    draw.io (también conocido como diagrams.net) es la herramienta oficial del curso para construir los diagramas **Entidad-Relación Extendidos (EER)** del Taller 1 y los proyectos de referencia.
+
+    1. Abre [app.diagrams.net](https://app.diagrams.net/) en tu navegador.
+    2. Al abrir por primera vez, selecciona dónde guardar tus diagramas:
+       - **Google Drive**: recomendado para sincronización automática.
+       - **GitHub**: ideal si quieres versionar tus diagramas junto con el repositorio del curso.
+       - **Device**: guarda localmente en formato `.drawio` o `.xml`.
+    3. Haz clic en **Create New Diagram** y selecciona la plantilla **Entity Relationship** en la categoría *Other*.
+    4. Familiarízate con las formas EER disponibles en el panel lateral: entidades (rectángulos), atributos (elipses), relaciones (rombos), líneas de participación y símbolos de cardinalidad (notación de pata de cuervo o de Crow's Foot).
+
+    <Note>
+      Los diagramas EER de los proyectos de referencia del curso (sistema de casino y sistema EPS) están disponibles en formato `.drawio` en el repositorio del curso. Puedes abrirlos en draw.io para estudiar su estructura y usarlos como punto de partida para tus propios diseños.
+    </Note>
+  </Step>
+
+  <Step title="(Opcional) Abre Google Colab para el taller de pgvector">
+    El **Taller 5** del curso introduce las bases de datos vectoriales usando la extensión `pgvector` sobre una instancia de PostgreSQL en Neon, orquestada desde un notebook de Python en Google Colab. Este paso es opcional hasta que llegues a ese taller.
+
+    1. Ve a [colab.research.google.com](https://colab.research.google.com/) e inicia sesión con tu cuenta de Google.
+    2. Crea un nuevo notebook (**File > New notebook**) o abre el notebook del taller desde el repositorio del curso.
+    3. Instala las dependencias necesarias en la primera celda del notebook:
 
     ```bash
-    your-cli start
+    pip install psycopg2-binary pgvector sqlalchemy
     ```
+
+    4. Configura la cadena de conexión a tu base de datos de Neon (o Supabase):
+
+    ```python
+    import os
+    from sqlalchemy import create_engine, text
+
+    # Reemplaza con tu connection string real
+    DATABASE_URL = "postgresql://usuario:contraseña@host:5432/postgres"
+
+    engine = create_engine(DATABASE_URL)
+
+    with engine.connect() as conn:
+        # Habilitar la extensión pgvector
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
+        print("pgvector habilitado correctamente ✓")
+    ```
+
+    5. Una vez habilitada la extensión, podrás crear tablas con columnas de tipo `vector` y ejecutar búsquedas por similitud de coseno:
+
+    ```python
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS documentos (
+                id      SERIAL PRIMARY KEY,
+                titulo  TEXT NOT NULL,
+                embedding vector(384)
+            )
+        """))
+        conn.commit()
+        print("Tabla 'documentos' creada correctamente ✓")
+    ```
+
+    <Warning>
+      Nunca escribas tus credenciales de base de datos directamente en el código del notebook si lo vas a compartir. Usa variables de entorno o los **Secrets** de Google Colab (`Tools > Secrets`) para almacenar tu `DATABASE_URL` de forma segura.
+    </Warning>
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Resumen de herramientas y enlaces
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+Una vez completados los pasos anteriores, tienes todo el entorno listo para el curso. Aquí tienes una referencia rápida de los recursos más utilizados:
+
+| Herramienta | Uso en el curso | Enlace |
+|-------------|----------------|--------|
+| Supabase | SQL Editor, DDL/DML, Talleres 3 y 4 | [supabase.com](https://supabase.com) |
+| RelaX | Álgebra relacional, Taller 2 | [dbis-uibk.github.io/relax](https://dbis-uibk.github.io/relax/) |
+| draw.io | Diagramas EER, Taller 1 | [app.diagrams.net](https://app.diagrams.net/) |
+| Google Colab | pgvector, Taller 5 | [colab.research.google.com](https://colab.research.google.com/) |
+| Repositorio del curso | Todos los archivos `.sql` y `.drawio` | [github.com/tutosrive/db-relacionales-2026-1](https://github.com/tutosrive/db-relacionales-2026-1) |
+
+<Tip>
+  Marca esta página como favorita y vuelve a ella al inicio de cada sesión de laboratorio. Si en algún momento pierdes acceso a tu proyecto de Supabase, puedes recrear todas las tablas en minutos ejecutando los scripts del repositorio en orden numérico de taller.
 </Tip>

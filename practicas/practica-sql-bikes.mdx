@@ -1,0 +1,306 @@
+---
+title: "Práctica SQL: Consultas avanzadas con base de datos de bicicletas"
+sidebarTitle: "Práctica Bicicletas"
+description: "Practica SQL avanzado con una base de datos de tienda de bicicletas: consultas con JOIN, GROUP BY, HAVING, subconsultas y funciones de agregación en PostgreSQL."
+---
+
+Esta práctica utiliza una base de datos de una cadena de tiendas de bicicletas para desarrollar habilidades progresivas en SQL: desde consultas simples con `JOIN` hasta subconsultas correlacionadas, agregaciones con `HAVING` y análisis de inventario. El esquema modela un negocio real con productos, clientes, personal, pedidos y tiendas, lo que permite plantear preguntas de negocio genuinas y responderlas con SQL. El objetivo no es solo que las consultas funcionen, sino que puedas leer el plan de ejecución y entender por qué son eficientes o dónde hay oportunidad de mejora.
+
+## Esquema de la base de datos
+
+El esquema está compuesto por nueve tablas que representan las entidades principales de la cadena de tiendas.
+
+| Tabla | Columnas clave | Descripción |
+|-------|---------------|-------------|
+| `categorias` | `categoria_id` PK, `nombre` | Categorías de productos (Mountain Bike, Road Bike, etc.) |
+| `marcas` | `marca_id` PK, `nombre` | Fabricantes de bicicletas y componentes |
+| `productos` | `producto_id` PK, `marca_id` FK, `categoria_id` FK, `año_modelo`, `precio_lista` | Catálogo de productos |
+| `clientes` | `cliente_id` PK, `nombre`, `apellido`, `telefono`, `email`, `ciudad`, `estado` | Clientes registrados |
+| `tiendas` | `tienda_id` PK, `nombre`, `telefono`, `email`, `ciudad`, `estado` | Sucursales de la cadena |
+| `personal` | `personal_id` PK, `tienda_id` FK, `gerente_id` FK | Empleados; `gerente_id` es autorreferencial |
+| `pedidos` | `pedido_id` PK, `cliente_id` FK, `tienda_id` FK, `personal_id` FK, `estado`, `fecha_pedido`, `fecha_requerida`, `fecha_envio` | Órdenes de compra |
+| `items_pedido` | `pedido_id` FK, `item_id`, `producto_id` FK, `cantidad`, `precio_lista`, `descuento` | Líneas de cada pedido |
+| `inventario` | `tienda_id` FK, `producto_id` FK, `cantidad` | Stock por tienda |
+
+### Relaciones del esquema
+
+```text
+marcas ──────┐
+             ↓
+categorias → productos ← inventario ← tiendas
+                ↓                         ↑
+           items_pedido → pedidos ─────────┤
+                              ↑            │
+                           clientes    personal
+```
+
+<Tip>
+  Usa `EXPLAIN ANALYZE` antes de cualquier consulta compleja para ver el plan de ejecución real. Por ejemplo: `EXPLAIN ANALYZE SELECT ...`. Presta atención a los nodos `Seq Scan` en tablas grandes; suelen indicar que falta un índice. En la práctica compararemos los planes de consultas con y sin índices sobre las columnas de join.
+</Tip>
+
+## Consultas de práctica
+
+<Tabs>
+  <Tab title="Básico">
+
+### Nivel básico: JOINs y filtros simples
+
+Estas consultas practican la navegación por el esquema mediante `JOIN` y el filtrado con `WHERE`. Asegúrate de entender el tipo de join que estás usando y por qué.
+
+**Productos con su marca y categoría**
+
+```sql
+-- Productos con su marca y categoría, ordenados por precio descendente
+SELECT
+  p.nombre        AS producto,
+  m.nombre        AS marca,
+  c.nombre        AS categoria,
+  p.precio_lista
+FROM productos p
+JOIN marcas     m ON p.marca_id     = m.marca_id
+JOIN categorias c ON p.categoria_id = c.categoria_id
+ORDER BY p.precio_lista DESC;
+```
+
+**Pedidos pendientes de envío**
+
+```sql
+-- Pedidos con estado 'Pendiente' que ya pasaron su fecha requerida
+SELECT
+  o.pedido_id,
+  c.nombre || ' ' || c.apellido  AS cliente,
+  o.fecha_pedido,
+  o.fecha_requerida,
+  t.nombre                        AS tienda
+FROM pedidos o
+JOIN clientes c ON o.cliente_id = c.cliente_id
+JOIN tiendas  t ON o.tienda_id  = t.tienda_id
+WHERE o.estado = 1                           -- 1 = Pendiente
+  AND o.fecha_requerida < CURRENT_DATE
+  AND o.fecha_envio IS NULL
+ORDER BY o.fecha_requerida ASC;
+```
+
+**Inventario de una tienda específica**
+
+```sql
+-- Stock completo de la tienda con tienda_id = 1
+SELECT
+  pr.nombre   AS producto,
+  cat.nombre  AS categoria,
+  i.cantidad
+FROM inventario i
+JOIN productos  pr  ON i.producto_id  = pr.producto_id
+JOIN categorias cat ON pr.categoria_id = cat.categoria_id
+WHERE i.tienda_id = 1
+ORDER BY cat.nombre, pr.nombre;
+```
+
+  </Tab>
+  <Tab title="Intermedio">
+
+### Nivel intermedio: agregaciones y HAVING
+
+Estas consultas combinan `GROUP BY`, funciones de agregación (`COUNT`, `SUM`, `AVG`) y la cláusula `HAVING` para filtrar sobre grupos calculados.
+
+**Total de pedidos y gasto por cliente**
+
+```sql
+-- Clientes con más de un pedido: total de pedidos y monto gastado
+SELECT
+  c.nombre || ' ' || c.apellido                              AS cliente,
+  COUNT(o.pedido_id)                                         AS total_pedidos,
+  SUM(i.cantidad * i.precio_lista * (1 - i.descuento))       AS total_gastado
+FROM clientes    c
+JOIN pedidos     o ON c.cliente_id = o.cliente_id
+JOIN items_pedido i ON o.pedido_id  = i.pedido_id
+GROUP BY c.cliente_id, c.nombre, c.apellido
+HAVING COUNT(o.pedido_id) > 1
+ORDER BY total_gastado DESC;
+```
+
+**Ventas por marca y categoría**
+
+```sql
+-- Cantidad de unidades vendidas y revenue por marca/categoría
+SELECT
+  m.nombre        AS marca,
+  cat.nombre      AS categoria,
+  SUM(i.cantidad) AS unidades_vendidas,
+  SUM(i.cantidad * i.precio_lista * (1 - i.descuento)) AS revenue
+FROM items_pedido i
+JOIN productos  p   ON i.producto_id   = p.producto_id
+JOIN marcas     m   ON p.marca_id      = m.marca_id
+JOIN categorias cat ON p.categoria_id  = cat.categoria_id
+GROUP BY m.marca_id, m.nombre, cat.categoria_id, cat.nombre
+ORDER BY revenue DESC;
+```
+
+**Personal con más pedidos gestionados**
+
+```sql
+-- Top 5 vendedores por número de pedidos procesados
+SELECT
+  s.nombre || ' ' || s.apellido  AS vendedor,
+  t.nombre                        AS tienda,
+  COUNT(o.pedido_id)              AS pedidos_gestionados
+FROM personal p
+JOIN personal s  ON p.personal_id = s.personal_id   -- alias para claridad
+JOIN tiendas  t  ON s.tienda_id   = t.tienda_id
+JOIN pedidos  o  ON o.personal_id = s.personal_id
+GROUP BY s.personal_id, s.nombre, s.apellido, t.nombre
+ORDER BY pedidos_gestionados DESC
+LIMIT 5;
+```
+
+  </Tab>
+  <Tab title="Avanzado">
+
+### Nivel avanzado: subconsultas y análisis cruzado
+
+Estas consultas usan subconsultas correlacionadas, `EXISTS`/`NOT EXISTS` y análisis de inventario crítico.
+
+**Productos con precio mayor al promedio de su categoría**
+
+```sql
+-- Subconsulta correlacionada: precio > promedio de la misma categoría
+SELECT
+  p.nombre         AS producto,
+  p.precio_lista,
+  c.nombre         AS categoria,
+  ROUND(
+    (SELECT AVG(p2.precio_lista)
+     FROM productos p2
+     WHERE p2.categoria_id = p.categoria_id), 2
+  ) AS promedio_categoria
+FROM productos  p
+JOIN categorias c ON p.categoria_id = c.categoria_id
+WHERE p.precio_lista > (
+  SELECT AVG(p2.precio_lista)
+  FROM productos p2
+  WHERE p2.categoria_id = p.categoria_id
+)
+ORDER BY c.nombre, p.precio_lista DESC;
+```
+
+**Inventario bajo por tienda**
+
+```sql
+-- Productos con menos de 5 unidades en cualquier tienda
+SELECT
+  t.nombre   AS tienda,
+  pr.nombre  AS producto,
+  m.nombre   AS marca,
+  i.cantidad
+FROM inventario i
+JOIN tiendas    t  ON i.tienda_id   = t.tienda_id
+JOIN productos  pr ON i.producto_id = pr.producto_id
+JOIN marcas     m  ON pr.marca_id   = m.marca_id
+WHERE i.cantidad < 5
+ORDER BY i.cantidad ASC, t.nombre;
+```
+
+**Clientes que nunca han realizado un pedido**
+
+```sql
+-- Clientes registrados sin ningún pedido asociado
+SELECT
+  c.cliente_id,
+  c.nombre || ' ' || c.apellido AS cliente,
+  c.email,
+  c.ciudad
+FROM clientes c
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pedidos o
+  WHERE o.cliente_id = c.cliente_id
+)
+ORDER BY c.apellido, c.nombre;
+```
+
+**Análisis de descuentos aplicados por producto**
+
+```sql
+-- Productos con descuento promedio mayor al 10% en sus items vendidos
+SELECT
+  p.nombre                           AS producto,
+  COUNT(i.item_id)                   AS veces_vendido,
+  ROUND(AVG(i.descuento) * 100, 2)   AS descuento_promedio_pct,
+  ROUND(MIN(i.descuento) * 100, 2)   AS descuento_minimo_pct,
+  ROUND(MAX(i.descuento) * 100, 2)   AS descuento_maximo_pct
+FROM items_pedido i
+JOIN productos    p ON i.producto_id = p.producto_id
+GROUP BY p.producto_id, p.nombre
+HAVING AVG(i.descuento) > 0.10
+ORDER BY descuento_promedio_pct DESC;
+```
+
+  </Tab>
+</Tabs>
+
+## Ejercicios
+
+Resuelve los siguientes retos usando el esquema de bicicletas. Intenta escribir la consulta antes de expandir la solución propuesta.
+
+<AccordionGroup>
+  <Accordion title="Reto 1: Tienda con mayor revenue en el último año">
+    Encuentra la tienda que generó el mayor revenue total (suma de `cantidad × precio_lista × (1 - descuento)`) en los pedidos del último año calendario. Muestra el nombre de la tienda, el número de pedidos y el revenue.
+
+    **Solución:**
+
+    ```sql
+    SELECT
+      t.nombre                                                   AS tienda,
+      COUNT(DISTINCT o.pedido_id)                                AS total_pedidos,
+      SUM(i.cantidad * i.precio_lista * (1 - i.descuento))       AS revenue
+    FROM tiendas t
+    JOIN pedidos      o ON t.tienda_id   = o.tienda_id
+    JOIN items_pedido i ON o.pedido_id   = i.pedido_id
+    WHERE o.fecha_pedido >= DATE_TRUNC('year', CURRENT_DATE - INTERVAL '1 year')
+      AND o.fecha_pedido <  DATE_TRUNC('year', CURRENT_DATE)
+    GROUP BY t.tienda_id, t.nombre
+    ORDER BY revenue DESC
+    LIMIT 1;
+    ```
+  </Accordion>
+
+  <Accordion title="Reto 2: Productos sin movimiento de inventario">
+    Encuentra todos los productos que existen en la tabla `productos` pero que no tienen ninguna línea en `items_pedido` (es decir, nunca han sido vendidos). Muestra el nombre del producto, la marca y la categoría.
+
+    **Solución:**
+
+    ```sql
+    SELECT
+      p.nombre   AS producto,
+      m.nombre   AS marca,
+      c.nombre   AS categoria
+    FROM productos  p
+    JOIN marcas     m ON p.marca_id     = m.marca_id
+    JOIN categorias c ON p.categoria_id = c.categoria_id
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM items_pedido i
+      WHERE i.producto_id = p.producto_id
+    )
+    ORDER BY c.nombre, p.nombre;
+    ```
+  </Accordion>
+
+  <Accordion title="Reto 3: Jerarquía de personal (autounión)">
+    El campo `gerente_id` en la tabla `personal` es una autorreferencia (cada empleado puede tener un gerente que también es personal). Escribe una consulta que muestre cada empleado junto con el nombre de su gerente directo. Los empleados sin gerente (gerentes de tienda) deben aparecer con `NULL` en la columna de gerente.
+
+    **Solución:**
+
+    ```sql
+    SELECT
+      e.personal_id,
+      e.nombre || ' ' || e.apellido    AS empleado,
+      t.nombre                          AS tienda,
+      g.nombre || ' ' || g.apellido    AS gerente_directo
+    FROM personal e
+    JOIN tiendas  t  ON e.tienda_id  = t.tienda_id
+    LEFT JOIN personal g ON e.gerente_id = g.personal_id
+    ORDER BY t.nombre, gerente_directo NULLS FIRST, empleado;
+    ```
+  </Accordion>
+</AccordionGroup>

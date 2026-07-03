@@ -1,0 +1,422 @@
+---
+title: "Práctica SQL: Consultas con base de datos de aerolíneas"
+sidebarTitle: "Práctica Aerolíneas"
+description: "Practica SQL con una base de datos de aerolíneas: reservas, vuelos, pasajeros y rutas. Ejercicios con JOINs múltiples, subconsultas correlacionadas y GROUP BY."
+---
+
+Esta práctica explora una base de datos de operaciones aéreas que incluye aerolíneas, aeropuertos, aviones, vuelos, pasajeros y reservas. El esquema introduce dos patrones que aparecen con frecuencia en bases de datos reales y que requieren atención especial en SQL: la **autounión** de la tabla `aeropuertos` (una misma tabla referenciada dos veces en el mismo `FROM` para representar origen y destino) y las **subconsultas correlacionadas** para calcular estadísticas por vuelo o por pasajero. A través de las consultas progresivas aprenderás a navegar estas relaciones con confianza y a escribir análisis de negocio directamente en SQL.
+
+## Esquema de la base de datos
+
+El esquema modela las entidades fundamentales de una operación aérea básica.
+
+| Tabla | Columnas clave | Descripción |
+|-------|---------------|-------------|
+| `aerolineas` | `aerolinea_id` PK, `nombre`, `codigo_iata`, `pais` | Compañías aéreas |
+| `aeropuertos` | `aeropuerto_id` PK, `nombre`, `codigo_iata`, `ciudad`, `pais` | Aeropuertos de origen y destino |
+| `aviones` | `avion_id` PK, `modelo`, `capacidad`, `aerolinea_id` FK | Flota de aviones por aerolínea |
+| `vuelos` | `vuelo_id` PK, `aerolinea_id` FK, `avion_id` FK, `origen_id` FK, `destino_id` FK, `fecha_salida`, `fecha_llegada`, `precio_base` | Vuelos programados |
+| `pasajeros` | `pasajero_id` PK, `nombre`, `apellido`, `pasaporte`, `nacionalidad`, `email` | Viajeros registrados |
+| `reservas` | `reserva_id` PK, `pasajero_id` FK, `vuelo_id` FK, `asiento`, `clase`, `precio_pagado`, `fecha_reserva` | Reservas por vuelo |
+
+<Note>
+  Las columnas `origen_id` y `destino_id` en la tabla `vuelos` son **dos claves foráneas distintas que apuntan a la misma tabla** `aeropuertos`. Para usar ambas en un `SELECT`, debes incluir `aeropuertos` dos veces en el `FROM` con alias diferentes (por ejemplo, `ao` para origen y `ad` para destino). Olvidar usar alias distintos es el error más común al escribir consultas sobre este esquema.
+
+  ```sql
+  -- Patrón correcto: aeropuertos referenciado con dos aliases
+  FROM vuelos v
+  JOIN aeropuertos ao ON v.origen_id  = ao.aeropuerto_id   -- origen
+  JOIN aeropuertos ad ON v.destino_id = ad.aeropuerto_id   -- destino
+  ```
+</Note>
+
+## Exploración del esquema
+
+<Steps>
+  <Step title="Explorar las aerolíneas y su flota">
+    Comienza por entender qué aerolíneas existen y cuántos aviones opera cada una:
+
+    ```sql
+    SELECT
+      al.nombre      AS aerolinea,
+      al.codigo_iata,
+      al.pais,
+      COUNT(av.avion_id) AS total_aviones,
+      SUM(av.capacidad)  AS capacidad_total_pasajeros
+    FROM aerolineas al
+    LEFT JOIN aviones av ON al.aerolinea_id = av.aerolinea_id
+    GROUP BY al.aerolinea_id, al.nombre, al.codigo_iata, al.pais
+    ORDER BY total_aviones DESC;
+    ```
+  </Step>
+
+  <Step title="Explorar los vuelos con origen y destino">
+    Usa el patrón de doble join con `aeropuertos` para ver las rutas disponibles:
+
+    ```sql
+    -- Vuelos disponibles con origen y destino legibles
+    SELECT
+      v.vuelo_id,
+      al.nombre        AS aerolinea,
+      ao.nombre        AS origen,
+      ao.ciudad        AS ciudad_origen,
+      ad.nombre        AS destino,
+      ad.ciudad        AS ciudad_destino,
+      v.fecha_salida,
+      v.fecha_llegada,
+      v.precio_base
+    FROM vuelos v
+    JOIN aerolineas al ON v.aerolinea_id = al.aerolinea_id
+    JOIN aeropuertos ao ON v.origen_id  = ao.aeropuerto_id
+    JOIN aeropuertos ad ON v.destino_id = ad.aeropuerto_id
+    ORDER BY v.fecha_salida;
+    ```
+  </Step>
+
+  <Step title="Explorar reservas y pasajeros">
+    Consulta quién está en cada vuelo y en qué clase viaja:
+
+    ```sql
+    -- Pasajeros en cada vuelo con su clase y asiento
+    SELECT
+      v.vuelo_id,
+      ao.ciudad        AS origen,
+      ad.ciudad        AS destino,
+      v.fecha_salida,
+      p.nombre || ' ' || p.apellido  AS pasajero,
+      r.clase,
+      r.asiento,
+      r.precio_pagado
+    FROM reservas r
+    JOIN vuelos     v  ON r.vuelo_id   = v.vuelo_id
+    JOIN pasajeros  p  ON r.pasajero_id = p.pasajero_id
+    JOIN aeropuertos ao ON v.origen_id  = ao.aeropuerto_id
+    JOIN aeropuertos ad ON v.destino_id = ad.aeropuerto_id
+    ORDER BY v.fecha_salida, r.clase;
+    ```
+  </Step>
+
+  <Step title="Analizar ingresos por aerolínea">
+    Agrega los ingresos totales, número de reservas y precio promedio por aerolínea:
+
+    ```sql
+    -- Ingresos totales por aerolínea
+    SELECT
+      al.nombre               AS aerolinea,
+      COUNT(r.reserva_id)     AS total_reservas,
+      SUM(r.precio_pagado)    AS ingresos_totales,
+      AVG(r.precio_pagado)    AS precio_promedio
+    FROM aerolineas al
+    JOIN vuelos   v ON al.aerolinea_id = v.aerolinea_id
+    JOIN reservas r ON v.vuelo_id      = r.vuelo_id
+    GROUP BY al.aerolinea_id, al.nombre
+    ORDER BY ingresos_totales DESC;
+    ```
+  </Step>
+
+  <Step title="Identificar pasajeros frecuentes">
+    Encuentra los pasajeros que han realizado más de 3 vuelos:
+
+    ```sql
+    -- Pasajeros frecuentes con más de 3 vuelos reservados
+    SELECT
+      p.nombre || ' ' || p.apellido  AS pasajero,
+      p.nacionalidad,
+      p.email,
+      COUNT(r.reserva_id)            AS total_vuelos
+    FROM pasajeros p
+    JOIN reservas r ON p.pasajero_id = r.pasajero_id
+    GROUP BY p.pasajero_id, p.nombre, p.apellido, p.nacionalidad, p.email
+    HAVING COUNT(r.reserva_id) > 3
+    ORDER BY total_vuelos DESC;
+    ```
+  </Step>
+</Steps>
+
+## Consultas por nivel de complejidad
+
+<Tabs>
+  <Tab title="Básico">
+
+### Consultas de exploración y filtrado
+
+**Vuelos entre dos ciudades específicas**
+
+```sql
+-- Todos los vuelos directos de Bogotá a Miami
+SELECT
+  v.vuelo_id,
+  al.nombre      AS aerolinea,
+  v.fecha_salida,
+  v.fecha_llegada,
+  av.modelo      AS avion,
+  av.capacidad,
+  v.precio_base
+FROM vuelos v
+JOIN aerolineas  al ON v.aerolinea_id = al.aerolinea_id
+JOIN aviones     av ON v.avion_id     = av.avion_id
+JOIN aeropuertos ao ON v.origen_id    = ao.aeropuerto_id
+JOIN aeropuertos ad ON v.destino_id   = ad.aeropuerto_id
+WHERE ao.ciudad = 'Bogotá'
+  AND ad.ciudad = 'Miami'
+ORDER BY v.fecha_salida;
+```
+
+**Reservas de un pasajero específico**
+
+```sql
+-- Historial de viajes de un pasajero dado su pasaporte
+SELECT
+  r.reserva_id,
+  al.nombre                      AS aerolinea,
+  ao.ciudad || ' → ' || ad.ciudad AS ruta,
+  v.fecha_salida,
+  r.clase,
+  r.asiento,
+  r.precio_pagado
+FROM reservas    r
+JOIN vuelos      v  ON r.vuelo_id    = v.vuelo_id
+JOIN aerolineas  al ON v.aerolinea_id = al.aerolinea_id
+JOIN aeropuertos ao ON v.origen_id   = ao.aeropuerto_id
+JOIN aeropuertos ad ON v.destino_id  = ad.aeropuerto_id
+JOIN pasajeros   p  ON r.pasajero_id = p.pasajero_id
+WHERE p.pasaporte = 'AB123456'
+ORDER BY v.fecha_salida;
+```
+
+  </Tab>
+  <Tab title="Intermedio">
+
+### Agregaciones y análisis por ruta
+
+**Rutas más populares por número de reservas**
+
+```sql
+-- Top 10 rutas por número de reservas
+SELECT
+  ao.ciudad || ' → ' || ad.ciudad  AS ruta,
+  ao.codigo_iata || '-' || ad.codigo_iata AS codigos,
+  COUNT(r.reserva_id)               AS total_reservas,
+  SUM(r.precio_pagado)              AS ingresos_ruta,
+  ROUND(AVG(r.precio_pagado), 2)    AS precio_promedio
+FROM reservas    r
+JOIN vuelos      v  ON r.vuelo_id   = v.vuelo_id
+JOIN aeropuertos ao ON v.origen_id  = ao.aeropuerto_id
+JOIN aeropuertos ad ON v.destino_id = ad.aeropuerto_id
+GROUP BY ao.ciudad, ao.codigo_iata, ad.ciudad, ad.codigo_iata
+ORDER BY total_reservas DESC
+LIMIT 10;
+```
+
+**Ocupación promedio por vuelo**
+
+```sql
+-- Porcentaje de ocupación de cada vuelo (reservas / capacidad del avión)
+SELECT
+  v.vuelo_id,
+  al.nombre                       AS aerolinea,
+  ao.ciudad || ' → ' || ad.ciudad AS ruta,
+  v.fecha_salida,
+  av.capacidad,
+  COUNT(r.reserva_id)             AS pasajeros_reservados,
+  ROUND(
+    COUNT(r.reserva_id) * 100.0 / av.capacidad, 1
+  )                               AS pct_ocupacion
+FROM vuelos      v
+JOIN aerolineas  al ON v.aerolinea_id = al.aerolinea_id
+JOIN aviones     av ON v.avion_id     = av.avion_id
+JOIN aeropuertos ao ON v.origen_id    = ao.aeropuerto_id
+JOIN aeropuertos ad ON v.destino_id   = ad.aeropuerto_id
+LEFT JOIN reservas r ON v.vuelo_id = r.vuelo_id
+GROUP BY v.vuelo_id, al.nombre, ao.ciudad, ad.ciudad, v.fecha_salida, av.capacidad
+ORDER BY pct_ocupacion DESC;
+```
+
+**Distribución de clases por aerolínea**
+
+```sql
+-- Cuántas reservas por clase tiene cada aerolínea
+SELECT
+  al.nombre      AS aerolinea,
+  r.clase,
+  COUNT(*)       AS reservas,
+  SUM(r.precio_pagado) AS ingresos_por_clase
+FROM aerolineas al
+JOIN vuelos     v  ON al.aerolinea_id = v.aerolinea_id
+JOIN reservas   r  ON v.vuelo_id      = r.vuelo_id
+GROUP BY al.aerolinea_id, al.nombre, r.clase
+ORDER BY al.nombre, r.clase;
+```
+
+  </Tab>
+  <Tab title="Avanzado">
+
+### Subconsultas correlacionadas y análisis complejo
+
+**Vuelos con precio mayor al promedio de su aerolínea**
+
+```sql
+-- Vuelos cuyo precio_base supera el promedio de la aerolínea que los opera
+SELECT
+  v.vuelo_id,
+  al.nombre                       AS aerolinea,
+  ao.ciudad || ' → ' || ad.ciudad AS ruta,
+  v.precio_base,
+  ROUND(
+    (SELECT AVG(v2.precio_base)
+     FROM vuelos v2
+     WHERE v2.aerolinea_id = v.aerolinea_id), 2
+  )                               AS promedio_aerolinea
+FROM vuelos      v
+JOIN aerolineas  al ON v.aerolinea_id = al.aerolinea_id
+JOIN aeropuertos ao ON v.origen_id    = ao.aeropuerto_id
+JOIN aeropuertos ad ON v.destino_id   = ad.aeropuerto_id
+WHERE v.precio_base > (
+  SELECT AVG(v2.precio_base)
+  FROM vuelos v2
+  WHERE v2.aerolinea_id = v.aerolinea_id
+)
+ORDER BY al.nombre, v.precio_base DESC;
+```
+
+**Pasajeros sin vuelos en el último semestre**
+
+```sql
+-- Pasajeros que no han viajado en los últimos 6 meses
+SELECT
+  p.pasajero_id,
+  p.nombre || ' ' || p.apellido  AS pasajero,
+  p.email,
+  p.nacionalidad,
+  MAX(v.fecha_salida)            AS ultimo_vuelo
+FROM pasajeros p
+JOIN reservas    r ON p.pasajero_id = r.pasajero_id
+JOIN vuelos      v ON r.vuelo_id    = v.vuelo_id
+GROUP BY p.pasajero_id, p.nombre, p.apellido, p.email, p.nacionalidad
+HAVING MAX(v.fecha_salida) < CURRENT_DATE - INTERVAL '6 months'
+ORDER BY ultimo_vuelo ASC;
+```
+
+**Aeropuertos con mayor tráfico (origen + destino combinado)**
+
+```sql
+-- Movimiento total de cada aeropuerto (vuelos salientes + entrantes)
+SELECT
+  ap.nombre       AS aeropuerto,
+  ap.ciudad,
+  ap.codigo_iata,
+  SUM(mov.cantidad) AS movimientos_totales
+FROM aeropuertos ap
+JOIN (
+  -- Vuelos salientes
+  SELECT origen_id AS aeropuerto_id, COUNT(*) AS cantidad
+  FROM vuelos
+  GROUP BY origen_id
+  UNION ALL
+  -- Vuelos entrantes
+  SELECT destino_id AS aeropuerto_id, COUNT(*) AS cantidad
+  FROM vuelos
+  GROUP BY destino_id
+) mov ON ap.aeropuerto_id = mov.aeropuerto_id
+GROUP BY ap.aeropuerto_id, ap.nombre, ap.ciudad, ap.codigo_iata
+ORDER BY movimientos_totales DESC;
+```
+
+  </Tab>
+</Tabs>
+
+## Ejercicios de práctica
+
+<AccordionGroup>
+  <Accordion title="Ejercicio 1: Primer vuelo de cada pasajero">
+    Encuentra el vuelo más antiguo (por `fecha_salida`) de cada pasajero. Muestra el nombre del pasajero, la ruta de su primer vuelo, la fecha y el precio pagado.
+
+    **Solución:**
+
+    ```sql
+    -- Usando subconsulta con MIN por pasajero
+    SELECT
+      p.nombre || ' ' || p.apellido   AS pasajero,
+      ao.ciudad || ' → ' || ad.ciudad AS primer_ruta,
+      v.fecha_salida                  AS fecha_primer_vuelo,
+      r.precio_pagado
+    FROM reservas    r
+    JOIN pasajeros   p  ON r.pasajero_id  = p.pasajero_id
+    JOIN vuelos      v  ON r.vuelo_id     = v.vuelo_id
+    JOIN aeropuertos ao ON v.origen_id    = ao.aeropuerto_id
+    JOIN aeropuertos ad ON v.destino_id   = ad.aeropuerto_id
+    WHERE v.fecha_salida = (
+      SELECT MIN(v2.fecha_salida)
+      FROM reservas  r2
+      JOIN vuelos    v2 ON r2.vuelo_id = v2.vuelo_id
+      WHERE r2.pasajero_id = r.pasajero_id
+    )
+    ORDER BY fecha_primer_vuelo;
+    ```
+  </Accordion>
+
+  <Accordion title="Ejercicio 2: Aerolíneas que operan en todos los países">
+    Lista las aerolíneas que tienen vuelos que aterrizan (destino) en al menos 3 países diferentes. Muestra el nombre de la aerolínea, su país de origen y el número de países destino distintos.
+
+    **Solución:**
+
+    ```sql
+    SELECT
+      al.nombre          AS aerolinea,
+      al.pais            AS pais_origen,
+      COUNT(DISTINCT ad.pais) AS paises_destino
+    FROM aerolineas  al
+    JOIN vuelos      v  ON al.aerolinea_id = v.aerolinea_id
+    JOIN aeropuertos ad ON v.destino_id    = ad.aeropuerto_id
+    GROUP BY al.aerolinea_id, al.nombre, al.pais
+    HAVING COUNT(DISTINCT ad.pais) >= 3
+    ORDER BY paises_destino DESC;
+    ```
+  </Accordion>
+
+  <Accordion title="Ejercicio 3: Diferencia entre precio base y precio pagado">
+    Calcula, para cada vuelo que tiene al menos una reserva, la diferencia promedio entre el `precio_base` del vuelo y el `precio_pagado` en las reservas. Ordena de mayor a menor diferencia promedio. Esto puede indicar vuelos donde se ofrecieron descuentos o recargos por clase.
+
+    **Solución:**
+
+    ```sql
+    SELECT
+      v.vuelo_id,
+      al.nombre                        AS aerolinea,
+      ao.ciudad || ' → ' || ad.ciudad  AS ruta,
+      v.fecha_salida,
+      v.precio_base,
+      ROUND(AVG(r.precio_pagado), 2)   AS precio_promedio_pagado,
+      ROUND(AVG(r.precio_pagado) - v.precio_base, 2) AS diferencia_promedio
+    FROM vuelos      v
+    JOIN aerolineas  al ON v.aerolinea_id = al.aerolinea_id
+    JOIN aeropuertos ao ON v.origen_id    = ao.aeropuerto_id
+    JOIN aeropuertos ad ON v.destino_id   = ad.aeropuerto_id
+    JOIN reservas    r  ON v.vuelo_id     = r.vuelo_id
+    GROUP BY v.vuelo_id, al.nombre, ao.ciudad, ad.ciudad, v.fecha_salida, v.precio_base
+    ORDER BY diferencia_promedio DESC;
+    ```
+  </Accordion>
+
+  <Accordion title="Ejercicio 4: Pasajeros que volaron en todas las clases disponibles">
+    Encuentra los pasajeros que han viajado en todas las clases disponibles en la tabla `reservas` (es decir, si existen tres clases distintas, el pasajero debe haber tenido una reserva en cada una de ellas).
+
+    **Solución:**
+
+    ```sql
+    -- Contar clases distintas en toda la tabla
+    -- y comparar con cuántas clases distintas tiene cada pasajero
+    SELECT
+      p.nombre || ' ' || p.apellido  AS pasajero,
+      p.nacionalidad,
+      COUNT(DISTINCT r.clase)        AS clases_viajadas
+    FROM pasajeros p
+    JOIN reservas  r ON p.pasajero_id = r.pasajero_id
+    GROUP BY p.pasajero_id, p.nombre, p.apellido, p.nacionalidad
+    HAVING COUNT(DISTINCT r.clase) = (
+      SELECT COUNT(DISTINCT clase) FROM reservas
+    )
+    ORDER BY pasajero;
+    ```
+  </Accordion>
+</AccordionGroup>

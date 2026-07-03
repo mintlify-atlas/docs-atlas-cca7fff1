@@ -1,0 +1,216 @@
+---
+title: "Taller 1: Modelamiento EER con draw.io"
+sidebarTitle: "Taller 1 – EER"
+description: "Aprende a construir diagramas Entidad-Relación Extendidos (EER) con draw.io a partir de un universo de discurso. Primer taller práctico del curso de BD Relacionales 2026-I."
+---
+
+El **Modelo Entidad-Relación Extendido (EER)** es una técnica de modelamiento conceptual que permite representar la estructura de datos de un dominio del mundo real antes de implementarla en un motor de base de datos. A diferencia del modelo ER clásico, el EER incorpora constructos avanzados como jerarquías de generalización/especialización, categorías y agregaciones, lo que lo hace ideal para capturar semántica rica. En este primer taller aprenderás a leer un universo de discurso, extraer sus componentes esenciales y plasmarlos en un diagrama EER usando la herramienta gratuita **draw.io** (app.diagrams.net).
+
+## ¿Qué es el Universo de Discurso?
+
+El **universo de discurso** (UoD) es la descripción en lenguaje natural del dominio que se desea modelar. Es el punto de partida de cualquier proceso de diseño de base de datos: un conjunto de reglas, restricciones y hechos que los usuarios y analistas establecen sobre el negocio o sistema a representar.
+
+Para trabajar correctamente con el UoD debes:
+
+- Leerlo de forma crítica, subrayando sustantivos (candidatos a **entidades** o **atributos**) y verbos (candidatos a **relaciones**).
+- Detectar repeticiones, ya que los sustantivos que aparecen varias veces y tienen vida propia suelen ser entidades.
+- Identificar propiedades descriptivas que no tienen existencia independiente — esos son atributos.
+- Buscar reglas de negocio que expresen cardinalidades: "un profesor puede dictar muchos cursos", "un alumno se matricula en varios cursos".
+
+<Note>
+El modelamiento conceptual (EER) es independiente de cualquier tecnología. En esta etapa **no** se piensa en tablas, columnas ni claves foráneas — eso corresponde al modelo lógico. El EER describe *qué* existe en el dominio, no *cómo* se almacena.
+</Note>
+
+---
+
+## Proceso de Modelamiento EER
+
+<Steps>
+  <Step title="Leer el universo de discurso">
+    Lee el UoD completo al menos dos veces antes de empezar a dibujar. En la primera lectura comprende el contexto general; en la segunda subraya o anota:
+
+    - **Sustantivos importantes**: personas, objetos, eventos, conceptos.
+    - **Verbos de acción entre sustantivos**: matricularse, impartir, pertenecer.
+    - **Restricciones numéricas**: "mínimo uno", "exactamente uno", "muchos".
+    - **Atributos mencionados explícitamente**: nombre, fecha, código, etc.
+
+    No tomes decisiones de diseño todavía — solo recopila información.
+  </Step>
+
+  <Step title="Identificar entidades y atributos">
+    Clasifica los sustantivos identificados en la lectura:
+
+    | Criterio | Entidad | Atributo |
+    |----------|---------|----------|
+    | ¿Tiene existencia propia? | ✅ Sí | ❌ No |
+    | ¿Puede tener múltiples instancias? | ✅ Sí | Depende |
+    | ¿Describe a otra cosa? | ❌ No | ✅ Sí |
+    | ¿Necesita ser referenciado desde otro lugar? | ✅ Sí | ❌ No |
+
+    Define una **clave primaria** (PK) para cada entidad: un atributo o conjunto de atributos que identifica de forma única cada instancia. Puede ser natural (cédula, código) o artificial (ID autogenerado).
+  </Step>
+
+  <Step title="Identificar relaciones y cardinalidades">
+    Para cada par de entidades pregunta: *¿puede una instancia de A estar relacionada con instancias de B?* Si la respuesta es sí, define:
+
+    - **Nombre de la relación** (verbo): `Matricula`, `Imparte`, `Pertenece`.
+    - **Cardinalidad mínima y máxima** en cada extremo: `(0,1)`, `(1,1)`, `(0,N)`, `(1,N)`.
+    - **Notación simplificada**: 1:1, 1:N, M:N.
+    - **Atributos de la relación** (si los hay): por ejemplo, `fecha_matricula` pertenece a la relación `Matricula`, no a `Alumno` ni a `Curso`.
+  </Step>
+
+  <Step title="Dibujar el diagrama EER en draw.io">
+    Abre [app.diagrams.net](https://app.diagrams.net) y sigue estos pasos dentro de la herramienta:
+
+    1. **Crea un nuevo diagrama** → selecciona la plantilla en blanco o una plantilla de base de datos.
+    2. **Activa la librería Entity Relation**: menú *Extras* → *Edit Diagram* o en el panel lateral busca la categoría **Entity Relation**.
+    3. **Arrastra entidades**: usa el shape de rectángulo con nombre en la parte superior (estilo ER estándar).
+    4. **Agrega atributos**: en notación EER clásica los atributos se representan con elipses conectadas a la entidad. Para diagramas más limpios puedes listarlos dentro del rectángulo de entidad.
+    5. **Conecta entidades** con líneas de relación (rombo para la relación) y anota la cardinalidad en los extremos con notación (min, max) o crow's foot.
+    6. **Guarda el archivo** como `.drawio` (XML) para poder editarlo luego, y exporta como PNG o PDF para entregar.
+
+    <Tip>
+      **Atajos útiles en draw.io:**
+      - `Ctrl + Shift + H` — ajustar el diagrama al tamaño de la ventana.
+      - `Ctrl + G` — agrupar shapes seleccionados.
+      - `Ctrl + Shift + F` — abrir el formateador de estilos rápidamente.
+      - Clic derecho sobre una conexión → *Edit Connection* para cambiar el estilo de flecha y la cardinalidad.
+      - Mantén `Alt` mientras arrastras para clonar un shape.
+    </Tip>
+  </Step>
+
+  <Step title="Identificar entidades débiles y jerarquías (extensiones EER)">
+    Revisa el modelo buscando:
+
+    - **Entidades débiles**: entidades cuya clave primaria depende parcialmente de otra entidad (propietaria). Se representan con doble rectángulo y su relación identificadora con doble rombo.
+    - **Especializaciones/Generalizaciones**: cuando una entidad padre (superclase) tiene subtipos con atributos o relaciones propios. Por ejemplo, `Empleado` se especializa en `Docente` y `Administrativo`.
+    - **Atributos multivaluados**: representados con doble elipse (p. ej., `telefonos` de una persona).
+    - **Atributos compuestos**: elipse padre con sub-elipses (p. ej., `direccion` → `calle`, `ciudad`, `pais`).
+    - **Atributos derivados**: elipse con línea punteada (p. ej., `edad` derivada de `fecha_nacimiento`).
+  </Step>
+
+  <Step title="Revisar y validar el modelo">
+    Antes de dar por terminado el diagrama, verifica:
+
+    - Toda entidad tiene una clave primaria claramente definida.
+    - No existen atributos repetidos en múltiples entidades (normalización conceptual).
+    - Las cardinalidades reflejan exactamente las reglas del UoD.
+    - Las relaciones M:N son correctas (se resolverán en el modelo lógico con tablas intermedias).
+    - El diagrama es legible: sin cruces de líneas innecesarios y con etiquetas visibles.
+    - Un compañero puede leer el diagrama y recuperar el UoD original sin ambigüedades.
+  </Step>
+</Steps>
+
+---
+
+## Ejemplo del Curso: Sistema Universitario
+
+El archivo de referencia para este taller es **`Taller_modelamiento_EER_2.drawio`**, disponible en la plataforma del curso. A continuación se describe el modelo que debes reproducir y ampliar.
+
+### Entidades y atributos
+
+```
+Alumno
+  - cedula        PK  (texto, no nulo)
+  - nombre            (texto, no nulo)
+  - apellido          (texto, no nulo)
+  - sexo              (char 1: M/F)
+  - fecha_nacimiento  (fecha)
+
+Curso
+  - codcurso      PK  (texto, no nulo)
+  - nombrecurso       (texto, no nulo)
+  - max_alumnos       (entero, > 0)
+  - num_horas         (entero, > 0)
+  - fecha_inicio      (fecha)
+  - fecha_fin         (fecha)
+
+Profesor
+  - cedula        PK  (texto, no nulo)
+  - nombre            (texto, no nulo)
+  - apellido          (texto, no nulo)
+  - especialidad      (texto)
+```
+
+### Relaciones
+
+| Relación | Entidades | Cardinalidad | Atributos de relación |
+|----------|-----------|--------------|----------------------|
+| `Matricula` | Alumno ↔ Curso | M : N | `fecha_matricula`, `nota_final` |
+| `Imparte` | Profesor ↔ Curso | 1 : N | `semestre` |
+
+### Reglas de negocio implícitas
+
+- Un alumno puede matricularse en **cero o muchos** cursos; un curso puede tener **uno o muchos** alumnos matriculados.
+- Un profesor imparte **uno o muchos** cursos; cada curso es impartido por **exactamente un** profesor.
+- La `fecha_fin` de un curso debe ser posterior a su `fecha_inicio`.
+
+<CardGroup cols={2}>
+  <Card title="¿Entidad o atributo?" icon="circle-question">
+    Es una **entidad** si: tiene vida propia en el negocio, puede ser referenciada desde múltiples lugares, o tiene sus propios atributos descriptivos. Ejemplo: `Departamento` merece ser entidad si se necesita su dirección, jefe, etc.
+  </Card>
+  <Card title="Queda mejor como atributo cuando…" icon="tag">
+    Es un **atributo** si: solo describe a una entidad padre, no tiene lógica propia y nunca será referenciado desde otra entidad. Ejemplo: `color_ojos` de `Alumno` es simplemente un dato descriptivo.
+  </Card>
+  <Card title="Relación vs. atributo de relación" icon="arrows-left-right">
+    Si el vínculo entre dos entidades tiene datos propios (fecha, porcentaje, cantidad), esos datos son **atributos de la relación**, no de las entidades. No muevas `fecha_matricula` a `Alumno` ni a `Curso`.
+  </Card>
+  <Card title="Cuándo usar entidad débil" icon="link">
+    Usa **entidad débil** cuando la existencia de una instancia depende completamente de otra entidad. Ejemplo: `Dependiente` de un `Empleado` no tiene sentido sin el empleado al que pertenece.
+  </Card>
+</CardGroup>
+
+---
+
+## Extensiones EER: Especialización y Generalización
+
+Las jerarquías EER permiten representar relaciones **es-un (is-a)** entre entidades.
+
+### Tipos de restricción
+
+| Dimensión | Opción A | Opción B |
+|-----------|----------|----------|
+| **Participación** | **Total** — toda instancia de la superclase pertenece a al menos una subclase (doble línea) | **Parcial** — algunas instancias no pertenecen a ninguna subclase (línea simple) |
+| **Solapamiento** | **Disjoint (d)** — una instancia pertenece a *exactamente una* subclase | **Overlapping (o)** — una instancia puede pertenecer a *múltiples* subclases simultáneamente |
+
+### Ejemplo: Jerarquía de Usuario
+
+```
+         Persona
+        /        \
+  Alumno        Profesor
+```
+
+- **Participación total**: toda `Persona` en el sistema es `Alumno` o `Profesor` (o ambos si es overlapping).
+- **Disjoint**: en este caso, no se puede ser alumno y profesor al mismo tiempo.
+
+En draw.io, la especialización se representa con un **círculo** (o triángulo) entre la superclase y las subclases, marcado con `d` (disjoint) u `o` (overlapping), con una línea doble si la participación es total.
+
+<Note>
+En el estándar de Chen, la generalización/especialización se indica con un triángulo isósceles apuntando hacia la superclase. draw.io incluye este shape en la librería **Entity Relation** bajo el nombre *Specialization*.
+</Note>
+
+---
+
+## Modelos Conceptual, Lógico y Físico
+
+<Note>
+El **modelo conceptual** (EER) captura *qué* existe: entidades, relaciones y restricciones semánticas, independiente de tecnología.
+
+El **modelo lógico** (relacional) transforma el EER en tablas, columnas, PKs y FKs, siguiendo reglas formales de mapeo. Aquí aparecen las tablas intermedias para relaciones M:N.
+
+El **modelo físico** define *cómo* se implementa: tipos de dato específicos del motor (VARCHAR, SERIAL, DATE en PostgreSQL), índices, particiones y consideraciones de rendimiento.
+
+En este curso trabajamos el modelo conceptual en los talleres EER y el modelo lógico/físico en los talleres de SQL.
+</Note>
+
+---
+
+## Entregable del Taller
+
+1. **Archivo `.drawio`** con el diagrama EER completo del sistema universitario, incluyendo las extensiones EER que apliquen.
+2. **Documento PDF** de máximo 2 páginas con:
+   - Listado de entidades y atributos identificados.
+   - Listado de relaciones con cardinalidades.
+   - Justificación de al menos una decisión de diseño no trivial (p. ej., por qué `Matricula` es una relación y no una entidad, o viceversa).
+3. Sube ambos archivos a la plataforma del curso antes de la fecha límite indicada.

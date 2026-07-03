@@ -1,0 +1,428 @@
+---
+title: "Taller 5: Integridad referencial y restricciones en PostgreSQL"
+sidebarTitle: "Taller 5 – Restricciones"
+description: "Domina las restricciones de integridad en PostgreSQL: PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE, NOT NULL y comportamientos ON DELETE/ON UPDATE con ejemplos prácticos."
+---
+
+La integridad de los datos es uno de los pilares fundamentales de las bases de datos relacionales. Sin restricciones, nada impide que un curso referencie un profesor que no existe, que un alumno tenga un género inválido, o que dos registros compartan el mismo identificador. PostgreSQL ofrece un conjunto completo de mecanismos de restricción que se verifican automáticamente en cada operación de escritura, rechazando los datos que violan las reglas definidas. En este taller explorarás cada tipo de restricción con ejemplos reales, aprenderás a definir claves primarias y foráneas compuestas, y entenderás los distintos comportamientos disponibles cuando se eliminan o actualizan registros referenciados.
+
+## Tipos de restricciones
+
+<Tabs>
+  <Tab title="PRIMARY KEY">
+    ### Clave primaria (PRIMARY KEY)
+
+    La clave primaria identifica de forma única cada fila de una tabla. Internamente, PostgreSQL crea un índice `UNIQUE` sobre las columnas que la componen e impone `NOT NULL` en todas ellas. Puede ser **simple** (una columna) o **compuesta** (varias columnas).
+
+    **Clave primaria simple:**
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS table1 (
+      a VARCHAR(1),
+      b VARCHAR(1),
+      CONSTRAINT pk_table1 PRIMARY KEY (a)
+    );
+    INSERT INTO table1 (a, b) VALUES ('a', 'b');
+    ```
+
+    En `table1`, la columna `a` es la clave primaria. Intentar insertar dos filas con el mismo valor en `a` generará un error.
+
+    **Clave primaria compuesta:**
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS table3 (
+      c VARCHAR(1),
+      d INT,
+      e VARCHAR(1),
+      CONSTRAINT pk_table3 PRIMARY KEY (c, d)
+    );
+    INSERT INTO table3 (c, d, e) VALUES ('x', 1, 'w'), ('x', 2, 'z');
+    ```
+
+    En `table3`, la clave primaria es el par `(c, d)`. Observa que el valor `'x'` en la columna `c` se repite en ambas filas: eso es válido porque la unicidad se evalúa sobre la **combinación** de `c` y `d`, no sobre cada columna por separado.
+
+    **Prueba de violación:**
+
+    ```sql
+    -- Esto falla: (c='x', d=1) ya existe
+    INSERT INTO table3 (c, d, e) VALUES ('x', 1, 'duplicado');
+    ```
+
+    <Note>
+      Nombrar las restricciones explícitamente (usando `CONSTRAINT nombre_restriccion`) facilita enormemente la depuración: los mensajes de error mostrarán el nombre de la restricción violada en lugar de un identificador generado automáticamente.
+    </Note>
+  </Tab>
+
+  <Tab title="FOREIGN KEY">
+    ### Clave foránea (FOREIGN KEY)
+
+    Una clave foránea establece un vínculo entre una columna (o conjunto de columnas) de una tabla hija y la clave primaria (o única) de una tabla padre. PostgreSQL verifica que cada valor insertado en la columna foránea exista en la tabla referenciada.
+
+    **FK simple:**
+
+    ```sql
+    -- table2 referencia tanto a table1 (FK simple) como a table3 (FK compuesta)
+    CREATE TABLE IF NOT EXISTS table2 (
+      a VARCHAR(1),
+      c VARCHAR(1),
+      d INT,
+      CONSTRAINT pk_table2 PRIMARY KEY (a, c, d),
+      CONSTRAINT fk_a_t2 FOREIGN KEY (a) REFERENCES table1 (a),
+      CONSTRAINT fk_c_t2 FOREIGN KEY (c, d) REFERENCES table3 (c, d)
+    );
+    INSERT INTO table2 (a, c, d) VALUES ('a', 'x', 1), ('a', 'x', 2);
+    ```
+
+    **FK compuesta:** `fk_c_t2` referencia las dos columnas `(c, d)` de `table3`. Ambas columnas deben coincidir simultáneamente con una fila existente en la tabla padre.
+
+    **Prueba de violación:**
+
+    ```sql
+    -- Esto falla: 'z' no existe en table1.a
+    INSERT INTO table2 (a, c, d) VALUES ('z', 'x', 1);
+
+    -- Esto falla: ('x', 99) no existe en table3.(c, d)
+    INSERT INTO table2 (a, c, d) VALUES ('a', 'x', 99);
+    ```
+
+    ### Comportamientos ON DELETE / ON UPDATE
+
+    Cuando se elimina o actualiza una fila en la tabla padre, PostgreSQL puede reaccionar de distintas formas dependiendo de la cláusula declarada en la FK:
+
+    | Comportamiento | ON DELETE | ON UPDATE | Descripción |
+    |---|---|---|---|
+    | `NO ACTION` | ✅ | ✅ | Error diferido al final de la transacción (comportamiento por defecto) |
+    | `RESTRICT` | ✅ | ✅ | Error inmediato, no permite eliminar/actualizar si hay hijos |
+    | `CASCADE` | ✅ | ✅ | Propaga la operación a las filas hijas automáticamente |
+    | `SET NULL` | ✅ | ✅ | Pone `NULL` en las columnas foráneas de las filas hijas |
+    | `SET DEFAULT` | ✅ | ✅ | Asigna el valor por defecto de la columna foránea |
+
+    **Ejemplo con CASCADE:**
+
+    ```sql
+    CREATE TABLE departamentos (
+      id INTEGER PRIMARY KEY,
+      nombre VARCHAR(50) NOT NULL
+    );
+
+    CREATE TABLE empleados (
+      id INTEGER PRIMARY KEY,
+      nombre VARCHAR(50) NOT NULL,
+      depto_id INTEGER,
+      CONSTRAINT fk_depto FOREIGN KEY (depto_id)
+        REFERENCES departamentos (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+    );
+    ```
+
+    Con esta configuración, al eliminar un departamento, todos sus empleados se eliminan automáticamente.
+
+    **Ejemplo con SET NULL:**
+
+    ```sql
+    CREATE TABLE empleados_nullable (
+      id INTEGER PRIMARY KEY,
+      nombre VARCHAR(50) NOT NULL,
+      depto_id INTEGER,
+      CONSTRAINT fk_depto_null FOREIGN KEY (depto_id)
+        REFERENCES departamentos (id)
+        ON DELETE SET NULL
+    );
+    ```
+
+    Al eliminar el departamento, `depto_id` en los empleados pasa a `NULL` en lugar de eliminar la fila.
+
+    <Warning>
+      Usar `ON DELETE CASCADE` puede tener consecuencias inesperadas en esquemas con cadenas largas de referencias. Una sola eliminación en la tabla raíz puede desencadenar una cascada que elimine cientos o miles de filas en múltiples tablas. Úsalo con intención y documenta claramente el comportamiento esperado.
+    </Warning>
+  </Tab>
+
+  <Tab title="CHECK">
+    ### Restricción CHECK
+
+    Una restricción `CHECK` define una expresión booleana que debe evaluarse como `TRUE` (o `NULL`) para que la operación sea aceptada. Es la forma de imponer reglas de negocio directamente en el esquema.
+
+    **CHECK sobre un valor de lista:**
+
+    ```sql
+    ALTER TABLE alumnos
+    ADD CONSTRAINT ck_sexo CHECK (sexo IN ('H', 'M'));
+    ```
+
+    **CHECK sobre un rango numérico:**
+
+    ```sql
+    ALTER TABLE cursos
+    ADD CONSTRAINT ck_minimo_alumnos_requeridos CHECK (max_alumnos >= 10);
+
+    ALTER TABLE cursos
+    ADD CONSTRAINT ck_minimo_num_horas CHECK (num_horas > 100);
+    ```
+
+    **CHECK con múltiples condiciones:**
+
+    ```sql
+    CREATE TABLE productos (
+      id INTEGER PRIMARY KEY,
+      nombre VARCHAR(100) NOT NULL,
+      precio NUMERIC(10, 2),
+      descuento NUMERIC(5, 2),
+      CONSTRAINT ck_precio_positivo CHECK (precio > 0),
+      CONSTRAINT ck_descuento_valido CHECK (descuento >= 0 AND descuento < precio)
+    );
+    ```
+
+    **CHECK entre columnas de la misma fila:**
+
+    ```sql
+    CREATE TABLE reservas (
+      id INTEGER PRIMARY KEY,
+      fecha_inicio DATE NOT NULL,
+      fecha_fin DATE NOT NULL,
+      CONSTRAINT ck_fechas_validas CHECK (fecha_fin > fecha_inicio)
+    );
+    ```
+
+    <Note>
+      Las restricciones `CHECK` **no se evalúan** cuando el valor es `NULL`. Si una columna acepta nulos, `NULL` siempre pasa el `CHECK`. Si necesitas que un valor no sea nulo **y** cumpla la condición, combina `CHECK` con `NOT NULL`.
+    </Note>
+  </Tab>
+
+  <Tab title="UNIQUE">
+    ### Restricción UNIQUE
+
+    `UNIQUE` garantiza que no haya dos filas con el mismo valor (o combinación de valores) en las columnas especificadas. A diferencia de `PRIMARY KEY`, permite valores `NULL` (en PostgreSQL, dos `NULL` no se consideran iguales para efectos de `UNIQUE`).
+
+    **UNIQUE simple:**
+
+    ```sql
+    CREATE TABLE usuarios (
+      id INTEGER PRIMARY KEY,
+      email VARCHAR(100) NOT NULL,
+      username VARCHAR(50),
+      CONSTRAINT uq_email UNIQUE (email),
+      CONSTRAINT uq_username UNIQUE (username)
+    );
+    ```
+
+    **UNIQUE compuesto:**
+
+    ```sql
+    CREATE TABLE horarios (
+      id INTEGER PRIMARY KEY,
+      aula VARCHAR(10) NOT NULL,
+      dia VARCHAR(10) NOT NULL,
+      hora_inicio TIME NOT NULL,
+      CONSTRAINT uq_aula_dia_hora UNIQUE (aula, dia, hora_inicio)
+    );
+    ```
+
+    Esto garantiza que no haya dos clases en la misma aula, el mismo día y a la misma hora, aunque cada valor individualmente pueda repetirse.
+
+    **Agregar UNIQUE a una tabla existente:**
+
+    ```sql
+    ALTER TABLE usuarios
+    ADD CONSTRAINT uq_email UNIQUE (email);
+    ```
+  </Tab>
+
+  <Tab title="NOT NULL y DEFAULT">
+    ### NOT NULL
+
+    `NOT NULL` impide que una columna almacene el valor especial `NULL`. Se puede definir en línea al declarar la columna o añadirse después con `ALTER TABLE`.
+
+    **En la definición de la tabla:**
+
+    ```sql
+    CREATE TABLE contactos (
+      id INTEGER PRIMARY KEY,
+      nombre VARCHAR(50) NOT NULL,
+      email VARCHAR(100) NOT NULL,
+      telefono VARCHAR(20)          -- acepta NULL
+    );
+    ```
+
+    **Con ALTER TABLE:**
+
+    ```sql
+    -- Primero asegúrate de que no haya NULLs en la columna
+    UPDATE contactos SET email = 'sin-email@ejemplo.com' WHERE email IS NULL;
+
+    -- Luego aplica la restricción
+    ALTER TABLE contactos ALTER COLUMN email SET NOT NULL;
+    ```
+
+    **Quitar NOT NULL:**
+
+    ```sql
+    ALTER TABLE contactos ALTER COLUMN email DROP NOT NULL;
+    ```
+
+    ### DEFAULT
+
+    `DEFAULT` define el valor que PostgreSQL asigna automáticamente a una columna cuando no se especifica en el `INSERT`.
+
+    ```sql
+    CREATE TABLE tareas (
+      id INTEGER PRIMARY KEY,
+      titulo VARCHAR(100) NOT NULL,
+      estado VARCHAR(20) DEFAULT 'pendiente',
+      prioridad INTEGER DEFAULT 3,
+      creado TIMESTAMPTZ DEFAULT NOW(),
+      activo BOOLEAN DEFAULT TRUE
+    );
+    ```
+
+    ```sql
+    -- Solo especificamos título; el resto toma sus defaults
+    INSERT INTO tareas (id, titulo) VALUES (1, 'Revisar documentación');
+
+    SELECT * FROM tareas WHERE id = 1;
+    -- estado = 'pendiente', prioridad = 3, activo = true, creado = timestamp actual
+    ```
+
+    **Cambiar el valor por defecto:**
+
+    ```sql
+    ALTER TABLE tareas ALTER COLUMN estado SET DEFAULT 'en_progreso';
+
+    -- Eliminar el valor por defecto
+    ALTER TABLE tareas ALTER COLUMN estado DROP DEFAULT;
+    ```
+  </Tab>
+</Tabs>
+
+## Claves primarias y foráneas compuestas
+
+El siguiente ejemplo integra los tres conceptos clave del taller: PK simple, PK compuesta y FK compuesta trabajando en conjunto.
+
+```sql
+-- Tabla con PK simple
+CREATE TABLE IF NOT EXISTS table1 (
+  a VARCHAR(1),
+  b VARCHAR(1),
+  CONSTRAINT pk_table1 PRIMARY KEY (a)
+);
+INSERT INTO table1 (a, b) VALUES ('a', 'b');
+```
+
+```sql
+-- Tabla con PK compuesta
+CREATE TABLE IF NOT EXISTS table3 (
+  c VARCHAR(1),
+  d INT,
+  e VARCHAR(1),
+  CONSTRAINT pk_table3 PRIMARY KEY (c, d)
+);
+INSERT INTO table3 (c, d, e) VALUES ('x', 1, 'w'), ('x', 2, 'z');
+```
+
+```sql
+-- Tabla con PK compuesta y dos FK (una simple, una compuesta)
+CREATE TABLE IF NOT EXISTS table2 (
+  a VARCHAR(1),
+  c VARCHAR(1),
+  d INT,
+  CONSTRAINT pk_table2 PRIMARY KEY (a, c, d),
+  CONSTRAINT fk_a_t2 FOREIGN KEY (a) REFERENCES table1 (a),
+  CONSTRAINT fk_c_t2 FOREIGN KEY (c, d) REFERENCES table3 (c, d)
+);
+INSERT INTO table2 (a, c, d) VALUES ('a', 'x', 1), ('a', 'x', 2);
+```
+
+En este diseño:
+- `table2.a` referencia la PK simple de `table1`.
+- `table2.(c, d)` referencia la PK compuesta de `table3` — ambas columnas deben coincidir simultáneamente con una fila existente.
+- La PK de `table2` es la combinación de los tres campos `(a, c, d)`.
+
+## Errores comunes y sus causas
+
+<AccordionGroup>
+  <Accordion title="violates not-null constraint">
+    **Mensaje:** `ERROR: null value in column "X" of relation "Y" violates not-null constraint`
+
+    **Causa:** Se intentó insertar o actualizar con `NULL` en una columna declarada `NOT NULL`.
+
+    **Solución:** Provee un valor explícito para la columna o verifica que no estés omitiendo una columna requerida en el `INSERT`.
+  </Accordion>
+
+  <Accordion title="violates primary key constraint">
+    **Mensaje:** `ERROR: duplicate key value violates unique constraint "pk_X"`
+
+    **Causa:** Ya existe una fila con el mismo valor (o combinación de valores) en la clave primaria.
+
+    **Solución:** Verifica si el registro ya existe antes de insertar. Considera usar `INSERT ... ON CONFLICT DO NOTHING` si el duplicado es esperado.
+  </Accordion>
+
+  <Accordion title="violates foreign key constraint">
+    **Mensaje:** `ERROR: insert or update on table "X" violates foreign key constraint "fk_Y"`
+
+    **Causa:** El valor que se intenta insertar en la columna foránea no existe en la tabla referenciada (tabla padre).
+
+    **Solución:** Asegúrate de que el registro padre exista antes de insertar en la tabla hija. Verifica el valor con un `SELECT` en la tabla padre.
+  </Accordion>
+
+  <Accordion title="violates check constraint">
+    **Mensaje:** `ERROR: new row for relation "X" violates check constraint "ck_Y"`
+
+    **Causa:** El valor insertado o actualizado no cumple la expresión booleana definida en el `CHECK`.
+
+    **Solución:** Revisa la definición del `CHECK` con `\d nombre_tabla` en psql o consultando `information_schema.table_constraints`. Ajusta el valor al rango o conjunto permitido.
+  </Accordion>
+
+  <Accordion title="update or delete on table violates foreign key (tabla hijo)">
+    **Mensaje:** `ERROR: update or delete on table "X" violates foreign key constraint "fk_Y" on table "Z"`
+
+    **Causa:** Se intentó eliminar o modificar una fila en la tabla padre que tiene filas hijas dependientes, y la FK no tiene `CASCADE` configurado.
+
+    **Solución:** Primero elimina o actualiza las filas hijas, o redefine la FK con `ON DELETE CASCADE` / `ON DELETE SET NULL` si el comportamiento automático es apropiado para tu modelo de datos.
+  </Accordion>
+
+  <Accordion title="there is no unique constraint matching given keys for referenced table">
+    **Mensaje:** `ERROR: there is no unique constraint matching given keys for referenced table "X"`
+
+    **Causa:** La columna o columnas referenciadas en el `REFERENCES` no tienen una restricción `PRIMARY KEY` o `UNIQUE`.
+
+    **Solución:** Las FKs solo pueden referenciar columnas que sean PK o tengan restricción `UNIQUE`. Agrega la restricción faltante en la tabla padre.
+  </Accordion>
+</AccordionGroup>
+
+## Consultar restricciones existentes
+
+Puedes inspeccionar todas las restricciones de tu base de datos con estas consultas:
+
+```sql
+-- Ver todas las restricciones de una tabla específica
+SELECT
+  constraint_name,
+  constraint_type
+FROM information_schema.table_constraints
+WHERE table_name = 'cursos';
+
+-- Ver las columnas involucradas en cada restricción
+SELECT
+  tc.constraint_name,
+  tc.constraint_type,
+  kcu.column_name
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+WHERE tc.table_name = 'table2'
+ORDER BY tc.constraint_name, kcu.ordinal_position;
+
+-- Ver las FK y sus tablas referenciadas
+SELECT
+  tc.constraint_name,
+  kcu.column_name,
+  ccu.table_name AS tabla_referenciada,
+  ccu.column_name AS columna_referenciada
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage ccu
+  ON tc.constraint_name = ccu.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND tc.table_name = 'cursos';
+```

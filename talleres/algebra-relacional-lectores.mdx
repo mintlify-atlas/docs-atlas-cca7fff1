@@ -1,0 +1,240 @@
+---
+title: "Álgebra Relacional: Taller de Lectores y Géneros Literarios"
+sidebarTitle: "Taller Lectores"
+description: "Ejercicios de álgebra relacional con el dataset Lectores: operadores de proyección, selección, join y división usando la herramienta RelaX."
+---
+
+Este taller presenta ejercicios de álgebra relacional construidos sobre un dataset de lectores, autores y géneros literarios. Practicarás los operadores fundamentales —selección (σ), proyección (π), join natural (⨝), diferencia (−) y división (÷)— usando la herramienta interactiva **RelaX**. Cada ejercicio incluye la expresión algebraica completa y una explicación del razonamiento detrás de la consulta.
+
+## Herramienta
+
+Todos los ejercicios se resuelven en **RelaX**, disponible en:
+
+<Card title="RelaX — Relational Algebra Calculator" icon="arrow-up-right-from-square" href="https://dbis-uibk.github.io/relax/">
+  Calculadora interactiva de álgebra relacional. Permite definir datasets propios y evaluar expresiones paso a paso.
+</Card>
+
+## Dataset: Lectores
+
+El dataset **Lectores** modela una pequeña biblioteca social con tres relaciones: `lee` (qué lectores leen a qué autores), `gusta` (qué géneros le gustan a cada lector) y `escribe` (qué géneros y cuántas obras tiene cada autor).
+
+### Cargar el dataset en RelaX
+
+<Steps>
+  <Step title="Abrir el editor de grupos">
+    En RelaX, haz clic en **"Group Editor"** en la barra superior.
+  </Step>
+  <Step title="Pegar la definición">
+    Borra el contenido de ejemplo y pega el bloque completo que aparece a continuación.
+  </Step>
+  <Step title="Ejecutar el grupo">
+    Haz clic en **"use this group"** para activar las relaciones y poder usarlas en consultas.
+  </Step>
+</Steps>
+
+```text
+group: Lectores
+description: Base de datos para ejercicios con lectores, autores y géneros
+
+lee = {
+lector:string, autor:string
+
+"Felipe", "Leandro"
+"Felipe", "Roberto"
+"Carlos", "Gaitan"
+"Carlos", "Lucia"
+"Carlos", "Pombo"
+"Nicolas", "Pombo"
+"Nicolas", "Leandro"
+"Julian", "Gaitan"
+"Cesar", "Maria"
+"Lina", "Leandro"
+"Milena", "Roberto"
+"Jose", "Gabo"
+"Jose", "Roberto"
+"Ana", "Pombo"
+}
+
+gusta = {
+lector:string, genero:string
+
+"Ana", "poesia"
+"Ana", "ensayo"
+"Jose", "novela"
+"Lina", "teatro"
+"Nicolas", "cuento"
+"Nicolas", "teatro"
+"Nicolas", "poesia"
+"Julian", "periodismo"
+"Felipe", "novela"
+"Felipe", "cuento"
+"Carlos", "ensayo"
+"Cesar", "teatro"
+"Lucas", "periodismo"
+"Carlos", "poesia"
+"Carlos", "periodismo"
+"Milena", "novela"
+"Felipe", "ensayo"
+}
+
+escribe = {
+autor:string, genero:string, numobras:number
+
+"Gabo", "novela", 12
+"Pombo", "poesia", 15
+"Roberto", "cuento", 8
+"Leandro", "novela", 6
+"Leandro", "teatro", 4
+"Lucia", "poesia", 10
+"Roberto", "novela", 12
+"Gardel", "ensayo", 6
+"Maria", "teatro", 9
+"Pombo", "cuento", 12
+"Gaitan", "ensayo", 54
+"Gaitan", "periodismo", 26
+}
+```
+
+### Descripción de las relaciones
+
+| Relación | Atributos | Descripción |
+|---|---|---|
+| `lee` | lector, autor | Qué lectores leen a qué autores |
+| `gusta` | lector, genero | Qué géneros le gustan a cada lector |
+| `escribe` | autor, genero, numobras | Qué géneros escribe cada autor y cuántas obras tiene |
+
+---
+
+## Ejercicios
+
+<Note>
+  La **división (÷)** retorna los valores de la primera relación que están relacionados con **todos** los valores de la segunda. Es el operador de las preguntas del tipo *"lectores que leen a TODOS los autores que..."*. La **diferencia (−)** retorna los elementos del primer conjunto que **no** están en el segundo.
+</Note>
+
+<AccordionGroup>
+
+  <Accordion title="Ejercicio 1 — Lectores que leen autores que escriben novela">
+    **Enunciado:** Encuentra todos los lectores que leen a algún autor que escriba novelas.
+
+    **Estrategia:** Primero filtra de `escribe` los autores del género `novela`, luego haz join con `lee` usando el atributo `autor` en común, y por último proyecta solo el atributo `lector`.
+
+    ```text
+    π lector (lee ⨝ σ genero='novela' (escribe))
+    ```
+
+    **Paso a paso:**
+    1. `σ genero='novela' (escribe)` → selecciona las tuplas donde el género es novela: `{Gabo, Leandro, Roberto}`.
+    2. `lee ⨝ ...` → join natural por el atributo `autor`: empareja cada entrada de `lee` con la fila correspondiente de `escribe`.
+    3. `π lector (...)` → proyecta solo el nombre del lector.
+
+    **Resultado esperado:** Felipe, Jose, Nicolas, Lina, Milena (lectores de Leandro, Roberto o Gabo).
+  </Accordion>
+
+  <Accordion title="Ejercicio 2 — Autores que escriben poesía">
+    **Enunciado:** Lista los nombres de todos los autores que han escrito al menos una obra de poesía.
+
+    **Estrategia:** Selecciona las filas de `escribe` donde `genero='poesia'` y proyecta el atributo `autor`.
+
+    ```text
+    π autor (σ genero='poesia' (escribe))
+    ```
+
+    **Paso a paso:**
+    1. `σ genero='poesia' (escribe)` → filtra: `{Pombo/poesia/15, Lucia/poesia/10}`.
+    2. `π autor (...)` → extrae solo la columna `autor`.
+
+    **Resultado esperado:** Pombo, Lucia.
+  </Accordion>
+
+  <Accordion title="Ejercicio 3 — Lectores que leen TODOS los autores que escriben poesía (División)">
+    **Enunciado:** Encuentra los lectores que leen a **todos** los autores que escriben poesía.
+
+    **Estrategia:** Este es un problema de *cuantificador universal* → se resuelve con la **división (÷)**. El dividendo es la proyección de `(lector, autor)` de la relación `lee`, y el divisor es la proyección de `autor` de los autores de poesía.
+
+    ```text
+    π lector, autor (lee) ÷ (π autor (σ genero='poesia' (escribe)))
+    ```
+
+    **Paso a paso:**
+    1. `π autor (σ genero='poesia' (escribe))` → divisor: `{Pombo, Lucia}`.
+    2. `π lector, autor (lee)` → dividendo: todos los pares (lector, autor).
+    3. La división retorna los lectores que aparecen en `lee` emparejados con **ambos**: Pombo y Lucia.
+
+    **Resultado esperado:** Carlos (lee a Pombo y a Lucia).
+
+    <Tip>
+      En RelaX, el operador de división se escribe como `÷` o usando la palabra clave `/ `. La expresión completa quedaría: `(π lector, autor (lee)) / (π autor (σ genero='poesia' (escribe)))`. Asegúrate de encerrar cada operando en paréntesis para evitar ambigüedades de precedencia.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Ejercicio 4 — Géneros que le gustan a Ana">
+    **Enunciado:** Lista los géneros literarios que le gustan a Ana.
+
+    **Estrategia:** Selecciona las filas de `gusta` donde `lector='Ana'` y proyecta `genero`.
+
+    ```text
+    π genero (σ lector='Ana' (gusta))
+    ```
+
+    **Paso a paso:**
+    1. `σ lector='Ana' (gusta)` → filtra: `{Ana/poesia, Ana/ensayo}`.
+    2. `π genero (...)` → extrae la columna `genero`.
+
+    **Resultado esperado:** poesia, ensayo.
+  </Accordion>
+
+  <Accordion title="Ejercicio 5 — Lectores que NO comparten ningún gusto con Ana">
+    **Enunciado:** Encuentra los lectores a quienes no les gusta ningún género que también le guste a Ana.
+
+    **Estrategia:** Usa la **diferencia (−)**. Construye primero el conjunto de lectores que *sí* comparten al menos un gusto con Ana, y réstalo del conjunto de todos los lectores.
+
+    ```text
+    gustosAna           = π genero (σ lector='Ana' (gusta))
+    lectoresConGustoComun = π lector (gusta ⨝ gustosAna)
+    todosLectores       = π lector (gusta)
+
+    todosLectores - lectoresConGustoComun
+    ```
+
+    **Paso a paso:**
+    1. `gustosAna` → `{poesia, ensayo}`.
+    2. `gusta ⨝ gustosAna` → join natural por `genero`: retiene las filas de `gusta` cuyo género es poesia o ensayo.
+    3. `π lector (...)` → lectores con al menos un gusto en común con Ana: Nicolas, Carlos, Felipe.
+    4. `todosLectores - lectoresConGustoComun` → lectores que **no** aparecen en el paso anterior.
+
+    **Resultado esperado:** Jose, Lina, Julian, Cesar, Lucas, Milena (no les gustan ni poesía ni ensayo).
+  </Accordion>
+
+  <Accordion title="Ejercicio 6 — Autores que no lee nadie">
+    **Enunciado:** Lista los autores que aparecen en `escribe` pero que ningún lector ha registrado leer.
+
+    **Estrategia:** Calcula la diferencia entre todos los autores (proyectados de `escribe`) y los autores que sí tienen al menos un lector (proyectados de `lee`).
+
+    ```text
+    todosAutores  = π autor (escribe)
+    autoresLeidos = π autor (lee)
+
+    todosAutores - autoresLeidos
+    ```
+
+    **Paso a paso:**
+    1. `todosAutores` → `{Gabo, Pombo, Roberto, Leandro, Lucia, Gardel, Maria, Gaitan}`.
+    2. `autoresLeidos` → `{Leandro, Roberto, Gaitan, Lucia, Pombo, Gabo, Maria}`.
+    3. La diferencia elimina todos los que aparecen en `autoresLeidos`.
+
+    **Resultado esperado:** Gardel (aparece en `escribe` pero nadie en `lee` lo tiene registrado).
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Resumen de operadores usados
+
+| Operador | Símbolo | Uso en este taller |
+|---|---|---|
+| Selección | σ | Filtrar tuplas por condición |
+| Proyección | π | Elegir columnas del resultado |
+| Join natural | ⨝ | Combinar relaciones por atributo común |
+| Diferencia | − | Elementos del primero que no están en el segundo |
+| División | ÷ | Cuantificador universal ("para todos") |

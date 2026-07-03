@@ -1,0 +1,458 @@
+---
+title: "Álgebra Relacional: 100 ejercicios con dataset Universidad"
+sidebarTitle: "Taller Universidad"
+description: "100 ejercicios de álgebra relacional organizados en 10 niveles usando el dataset UniversidadCompleta: desde selección básica hasta división y self-joins avanzados."
+---
+
+Este taller reúne **100 ejercicios de álgebra relacional** organizados en 10 niveles de dificultad progresiva. El dataset **UniversidadCompleta** modela un sistema académico real con estudiantes, cursos, profesores, inscripciones y prerrequisitos, lo que permite formular desde consultas elementales de selección hasta razonamientos complejos con división, self-join y cuantificadores universales. Los niveles 1 a 6 se trabajan en clase; los niveles 7 a 10 son de práctica avanzada y constituyen el tipo de pregunta esperada en exámenes.
+
+## Herramienta
+
+<Card title="RelaX — Relational Algebra Calculator" icon="arrow-up-right-from-square" href="https://dbis-uibk.github.io/relax/">
+  Calculadora interactiva de álgebra relacional. Carga el dataset completo con el Group Editor antes de comenzar.
+</Card>
+
+<Note>
+  Antes de intentar cualquier ejercicio, carga el dataset en RelaX usando el **Group Editor**: pega el bloque completo de la sección siguiente y pulsa **"use this group"**. Las relaciones `estudiante`, `curso`, `inscribe`, `profesor`, `dicta`, `prerrequisito`, `amistad` y `salon` quedarán disponibles de inmediato.
+</Note>
+
+## Dataset: UniversidadCompleta
+
+```text
+group: UniversidadCompleta
+description: Base de datos amplia para practicar algebra relacional completa
+
+estudiante = {
+id:number, nombre:string, carrera:string, semestre:number, ciudad:string
+
+1, "Ana", "Sistemas", 4, "Manizales"
+2, "Luis", "Electronica", 6, "Pereira"
+3, "Marta", "Sistemas", 3, "Manizales"
+4, "Julian", "Industrial", 7, "Armenia"
+5, "Laura", "Sistemas", 2, "Bogota"
+6, "Camilo", "Civil", 5, "Medellin"
+7, "Sofia", "Electronica", 1, "Manizales"
+8, "Mateo", "Sistemas", 8, "Pereira"
+9, "Valeria", "Industrial", 4, "Bogota"
+10, "Daniel", "Civil", 6, "Armenia"
+11, "Sara", "Sistemas", 5, "Manizales"
+12, "David", "Electronica", 3, "Bogota"
+}
+
+curso = {
+cod:number, nombre:string, creditos:number, departamento:string
+
+201, "BasesDatos", 3, "Computacion"
+202, "Programacion", 4, "Computacion"
+203, "Redes", 3, "Computacion"
+204, "Calculo", 4, "Matematicas"
+205, "Fisica", 4, "Matematicas"
+206, "Circuitos", 3, "Electronica"
+207, "Control", 4, "Electronica"
+208, "Procesos", 3, "Industrial"
+209, "Materiales", 3, "Civil"
+210, "IA", 4, "Computacion"
+}
+
+inscribe = {
+id_est:number, cod:number, nota:number
+
+1, 201, 4.5
+1, 202, 3.9
+1, 210, 4.7
+2, 206, 3.5
+3, 201, 4.0
+5, 202, 4.8
+8, 201, 3.2
+11, 202, 4.9
+11, 210, 5.0
+}
+
+profesor = {
+id_prof:number, nombre:string, departamento:string
+
+101, "Ruiz", "Computacion"
+102, "Garcia", "Matematicas"
+103, "Torres", "Electronica"
+}
+
+dicta = {
+id_prof:number, cod:number, grupo:number
+
+101, 201, 1
+101, 210, 1
+102, 204, 1
+103, 206, 1
+}
+
+prerrequisito = {
+curso:number, requisito:number
+
+203, 202
+210, 201
+210, 202
+206, 204
+}
+
+amistad = {
+id1:number, id2:number
+
+1, 3
+1, 5
+3, 8
+5, 11
+}
+
+salon = {
+cod:number, edificio:string, aula:string
+
+201, "BloqueA", "101"
+202, "BloqueA", "102"
+203, "BloqueB", "201"
+204, "BloqueC", "301"
+210, "BloqueA", "103"
+}
+```
+
+### Diagrama de relaciones
+
+| Relación | Descripción | Cardinalidad |
+|---|---|---|
+| `estudiante` | Datos de cada estudiante | 12 tuplas |
+| `curso` | Catálogo de cursos ofrecidos | 10 tuplas |
+| `inscribe` | Inscripciones con nota | 9 tuplas |
+| `profesor` | Planta docente | 3 tuplas |
+| `dicta` | Asignación profesor–curso–grupo | 4 tuplas |
+| `prerrequisito` | Dependencias entre cursos | 4 tuplas |
+| `amistad` | Pares de estudiantes amigos | 4 tuplas |
+| `salon` | Ubicación física de cada curso | 5 tuplas |
+
+---
+
+## Ejercicios por nivel
+
+<Warning>
+  En expresiones complejas, el **orden de precedencia** en álgebra relacional es: σ y π (mayor precedencia) → ⨝ y × → ∪, ∩ y − (menor precedencia). Usa paréntesis explícitos siempre que encadenes más de dos operadores para evitar resultados inesperados. En RelaX, una expresión sin paréntesis puede interpretarse de manera diferente a lo que esperas.
+</Warning>
+
+<AccordionGroup>
+
+  <Accordion title="Nivel 1 — Selección y Proyección (σ, π)">
+    El nivel 1 trabaja sobre **una sola relación** a la vez. Los operadores σ (selección) y π (proyección) son los bloques fundamentales: σ filtra filas según una condición booleana y π elige las columnas que aparecen en el resultado.
+
+    **Ejercicios de muestra:**
+
+    **1. Nombres de todos los estudiantes**
+    ```text
+    π nombre (estudiante)
+    ```
+    Proyecta únicamente la columna `nombre` de toda la relación `estudiante`.
+
+    ---
+
+    **2. Estudiantes de Manizales**
+    ```text
+    σ ciudad='Manizales' (estudiante)
+    ```
+    Retiene solo las filas donde `ciudad = 'Manizales'`. Resultado: Ana, Marta, Sofia, Sara.
+
+    ---
+
+    **3. Cursos de 4 créditos**
+    ```text
+    σ creditos=4 (curso)
+    ```
+    Resultado: Programacion (202), Calculo (204), Fisica (205), Control (207), IA (210).
+
+    ---
+
+    **4. Nombre y carrera de estudiantes de Pereira**
+    ```text
+    π nombre, carrera (σ ciudad='Pereira' (estudiante))
+    ```
+    Primero selecciona los estudiantes de Pereira (Luis, Mateo) y luego proyecta solo nombre y carrera.
+
+    ---
+
+    **5. Estudiantes de semestre mayor a 4**
+    ```text
+    σ semestre>4 (estudiante)
+    ```
+    Resultado: Luis (6), Julian (7), Camilo (5), Mateo (8), Daniel (6), Sara (5).
+
+    ---
+
+    *Los ejercicios 6 a 10 del nivel 1 aplican condiciones compuestas (AND/OR), rangos numéricos y proyecciones combinadas.*
+  </Accordion>
+
+  <Accordion title="Nivel 2 — Operaciones de conjuntos (∪, ∩, −)">
+    El nivel 2 introduce las **operaciones de conjuntos**: unión (∪), intersección (∩) y diferencia (−). Recuerda que los operandos deben ser **compatibles por unión**: mismo número de atributos y dominios correspondientes.
+
+    **Ejercicios de muestra:**
+
+    **1. Ciudades donde hay estudiantes de Sistemas o de Industrial**
+    ```text
+    π ciudad (σ carrera='Sistemas' (estudiante))
+    ∪
+    π ciudad (σ carrera='Industrial' (estudiante))
+    ```
+    Ambas subexpresiones producen un conjunto de ciudades (mismo esquema), por lo que la unión es válida. Resultado: Manizales, Bogota, Pereira, Armenia.
+
+    ---
+
+    **2. Cursos del departamento Computacion**
+    ```text
+    σ departamento='Computacion' (curso)
+    ```
+    Resultado: BasesDatos (201), Programacion (202), Redes (203), IA (210).
+
+    ---
+
+    **3. Concepto de unión — cursos de cómputo y cursos de electrónica**
+    ```text
+    π cod, nombre (σ departamento='Computacion' (curso))
+    ∪
+    π cod, nombre (σ departamento='Electronica' (curso))
+    ```
+    Ilustra cómo ∪ combina dos categorías en un solo resultado sin duplicados.
+
+    ---
+
+    **4. Carreras que tienen estudiantes pero que no están entre los inscritos en ningún curso**
+
+    Este ejercicio es conceptual: usa la diferencia (−) entre el conjunto de IDs del lado `estudiante` y el conjunto de IDs del lado `inscribe`. Los estudiantes que nunca han inscrito ningún curso no aparecerán en `inscribe`.
+
+    ```text
+    π id (estudiante) - π id_est (inscribe)
+    ```
+
+    Resultado: IDs 4 (Julian), 6 (Camilo), 7 (Sofia), 9 (Valeria), 10 (Daniel), 12 (David).
+
+    ---
+
+    *Los ejercicios 5 a 10 del nivel 2 combinan las tres operaciones de conjuntos sobre proyecciones diversas.*
+  </Accordion>
+
+  <Accordion title="Nivel 3 — Join básico (⨝)">
+    El nivel 3 introduce el **join natural** y el **join con condición explícita** para combinar dos relaciones. La mayoría de las preguntas de interés real requieren cruzar al menos dos tablas.
+
+    <Tip>
+      El operador de **renombramiento ρ** (rho) permite alias a una relación: `ρE(estudiante)` crea una copia de `estudiante` con el prefijo `E`. Esto es indispensable cuando necesitas referenciar dos instancias de la misma relación (self-join) o cuando hay ambigüedad de nombres en un join. En RelaX se escribe como `ρ alias (relacion)`.
+    </Tip>
+
+    **Ejercicios de muestra:**
+
+    **1. Nombres de estudiantes junto con los cursos que han inscrito**
+    ```text
+    π estudiante.nombre, curso.nombre
+      (estudiante ⨝ estudiante.id=inscribe.id_est inscribe ⨝ inscribe.cod=curso.cod curso)
+    ```
+
+    ---
+
+    **2. Estudiantes inscritos en el curso BasesDatos**
+    ```text
+    π estudiante.nombre
+      (estudiante ⨝ estudiante.id=inscribe.id_est σ cod=201 (inscribe))
+    ```
+    Resultado: Ana, Marta, Mateo.
+
+    ---
+
+    **3. Profesores que dictan al menos un curso**
+    ```text
+    π nombre (profesor ⨝ profesor.id_prof=dicta.id_prof dicta)
+    ```
+    Resultado: Ruiz, Garcia, Torres.
+
+    ---
+
+    **4. Estudiantes y sus notas (con renombramiento explícito)**
+    ```text
+    π E.nombre, I.nota (ρE(estudiante) ⨝ E.id=I.id_est ρI(inscribe))
+    ```
+    El renombramiento `ρE` y `ρI` evita ambigüedad al referenciar atributos en la condición del join.
+
+    ---
+
+    *Los ejercicios 5 a 10 del nivel 3 añaden condiciones de selección dentro del join y proyecciones sobre más atributos.*
+  </Accordion>
+
+  <Accordion title="Nivel 4 — Join múltiple (3+ relaciones)">
+    El nivel 4 encadena **tres o más relaciones** en una sola expresión. El reto es mantener los prefijos de atributo correctos y elegir el orden de join que sea más legible.
+
+    **Ejercicios de muestra:**
+
+    **1. Nombres de estudiantes, nombre del curso y edificio del salón**
+    ```text
+    π E.nombre, C.nombre, S.edificio
+      (ρE(estudiante)
+       ⨝ E.id=I.id_est ρI(inscribe)
+       ⨝ I.cod=C.cod ρC(curso)
+       ⨝ C.cod=S.cod ρS(salon))
+    ```
+    Combina cuatro relaciones para obtener el nombre del alumno, el nombre del curso que toma y el edificio donde se dicta.
+
+    ---
+
+    **2. Profesores y los estudiantes inscritos en sus cursos**
+    ```text
+    π P.nombre, E.nombre
+      (ρP(profesor)
+       ⨝ P.id_prof=D.id_prof ρD(dicta)
+       ⨝ D.cod=I.cod ρI(inscribe)
+       ⨝ I.id_est=E.id ρE(estudiante))
+    ```
+
+    ---
+
+    **3. Cursos con su profesor y su salón**
+    ```text
+    π C.nombre, P.nombre, S.edificio, S.aula
+      (ρC(curso)
+       ⨝ C.cod=D.cod ρD(dicta)
+       ⨝ D.id_prof=P.id_prof ρP(profesor)
+       ⨝ C.cod=S.cod ρS(salon))
+    ```
+
+    ---
+
+    *Los ejercicios 4 a 10 del nivel 4 incluyen filtros σ intercalados para reducir el tamaño de los resultados intermedios.*
+  </Accordion>
+
+  <Accordion title="Nivel 5 — Diferencia real (−)">
+    El nivel 5 se enfoca en la **diferencia de conjuntos (−)**, útil para preguntas del tipo *"¿quién NO cumple cierta condición?"*. El patrón típico es: calcular el universo completo → calcular el subconjunto que SÍ cumple la condición → restar.
+
+    **Ejercicios de muestra:**
+
+    **1. Estudiantes que nunca han reprobado (ninguna nota menor a 3.0)**
+    ```text
+    todosEstudiantes  = π id_est (inscribe)
+    reprobados        = π id_est (σ nota<3.0 (inscribe))
+
+    todosEstudiantes - reprobados
+    ```
+    Con el dataset actual no hay notas por debajo de 3.0, pero el patrón es correcto para datos más variados. Para recuperar el nombre: join con `estudiante`.
+
+    ---
+
+    **2. Profesores que no dictan ningún curso**
+    ```text
+    todosProfesores   = π id_prof (profesor)
+    profesoresDictan  = π id_prof (dicta)
+
+    todosProfesores - profesoresDictan
+    ```
+    Resultado: ninguno en el dataset actual (todos los profesores tienen al menos un curso asignado).
+
+    ---
+
+    **3. Cursos que nadie ha inscrito**
+    ```text
+    todosCursos      = π cod (curso)
+    cursosInscritos  = π cod (inscribe)
+
+    todosCursos - cursosInscritos
+    ```
+    Resultado: Redes (203), Calculo (204), Fisica (205), Control (207), Procesos (208), Materiales (209), Circuitos (206) — ningún estudiante los tiene en `inscribe`.
+
+    ---
+
+    *Los ejercicios 4 a 10 del nivel 5 combinan diferencia con join para expresar negaciones más complejas.*
+  </Accordion>
+
+  <Accordion title="Nivel 6 — Self-Join (ρ obligatorio)">
+    El nivel 6 trabaja con **self-joins**: consultas donde una relación se une consigo misma. Esto requiere usar el operador de renombramiento **ρ** para crear dos "copias" con nombres distintos.
+
+    <Tip>
+      El operador **ρ (rho)** crea un alias de una relación. La sintaxis en RelaX es `ρ NuevoNombre (Relacion)`. En un self-join siempre necesitas dos alias distintos para distinguir el "lado izquierdo" del "lado derecho" de la misma tabla.
+    </Tip>
+
+    **¿Cuándo usar self-join?** Cuando la pregunta involucra comparar tuplas de la **misma relación** entre sí, por ejemplo: *"estudiantes que viven en la misma ciudad"* o *"pares de amigos que estudian la misma carrera"*.
+
+    **Ejercicio 1 — Pares de estudiantes que viven en la misma ciudad**
+    ```text
+    ρA(estudiante) ⨝ A.ciudad=B.ciudad ρB(estudiante)
+    ```
+    Esto genera todos los pares (A, B) donde A y B viven en la misma ciudad. Para excluir el par de un estudiante consigo mismo, añade la condición `A.id ≠ B.id`.
+
+    ---
+
+    **Ejercicio 2 — Amigos que estudian la misma carrera**
+
+    La relación `amistad` registra pares (id1, id2). Para saber si dos amigos estudian la misma carrera necesitas hacer self-join sobre `estudiante`:
+
+    ```text
+    π Am.id1, Am.id2, E1.carrera
+      (ρAm(amistad)
+       ⨝ Am.id1=E1.id ρE1(estudiante)
+       ⨝ Am.id2=E2.id ρE2(estudiante)
+       ⨝ E1.carrera=E2.carrera)
+    ```
+    El join final `E1.carrera=E2.carrera` garantiza que solo aparezcan pares de amigos con la misma carrera.
+
+    ---
+
+    *Los ejercicios 3 a 10 del nivel 6 incluyen self-joins sobre `prerrequisito` para encontrar cadenas de dependencia entre cursos.*
+  </Accordion>
+
+  <Accordion title="Niveles 7–10 — Avanzados (prerrequisitos, razonamiento complejo, examen)">
+    Los últimos cuatro niveles son de práctica intensiva y representan el grado de complejidad esperado en evaluaciones del curso.
+
+    <CardGroup cols={2}>
+      <Card title="Nivel 7 — Prerrequisitos" icon="diagram-project">
+        Consultas sobre la relación `prerrequisito`: cursos que requieren exactamente dos prerrequisitos, cadenas de dependencia de dos saltos, cursos que son prerrequisito de al menos N cursos. Requiere self-join sobre `prerrequisito`.
+      </Card>
+      <Card title="Nivel 8 — Razonamiento intermedio" icon="brain">
+        Combinaciones de diferencia + join + proyección. Típicas preguntas: *"estudiantes que han inscrito todos los cursos de su departamento"* (requiere división), *"cursos que tienen prerrequisito pero no tienen salón asignado"*.
+      </Card>
+      <Card title="Nivel 9 — Avanzado" icon="layer-group">
+        Expresiones de cinco o más operaciones encadenadas. Incluye división (÷) con divisores construidos dinámicamente, diferencias sobre resultados de join y consultas de cuantificador universal.
+      </Card>
+      <Card title="Nivel 10 — Tramposos" icon="triangle-exclamation">
+        Ejercicios diseñados para explotar errores comunes: confundir join natural con producto cartesiano, olvidar el operador ρ en self-joins, precedencia incorrecta de operadores, y proyecciones que eliminan información necesaria para joins posteriores.
+      </Card>
+    </CardGroup>
+
+    **Ejemplo Nivel 7 — Cursos que tienen exactamente dos prerrequisitos**
+    ```text
+    unPrereq = π curso (prerrequisito)
+
+    dosPrereq = π P1.curso
+      (ρP1(prerrequisito) ⨝ P1.curso=P2.curso ρP2(prerrequisito)
+       donde P1.requisito ≠ P2.requisito)
+    ```
+    En RelaX, la condición de desigualdad se escribe con `!=`. Este tipo de expresión aparece en el examen final.
+
+    **Ejemplo Nivel 9 — Estudiantes que han inscrito TODOS los cursos del departamento Computacion**
+    ```text
+    cursosComp  = π cod (σ departamento='Computacion' (curso))
+    inscripciones = π id_est, cod (inscribe)
+
+    inscripciones ÷ cursosComp
+    ```
+    La división retorna los IDs de estudiantes que tienen una inscripción para **cada** curso de Computacion (201, 202, 203, 210). Con el dataset actual: Ana (1) inscribió 201, 202, 210 pero no 203 → ningún estudiante supera la división completa.
+
+    ---
+
+    *Los 40 ejercicios de los niveles 7–10 están disponibles en el archivo `Repasos/algebra-relacional/dataset-ejercicios-chat-one-to-100.relax` del repositorio del curso.*
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Guía rápida de sintaxis en RelaX
+
+| Operador | Símbolo matemático | Sintaxis RelaX |
+|---|---|---|
+| Selección | σ condición (R) | `σ atributo='valor' (R)` |
+| Proyección | π a, b (R) | `π col1, col2 (R)` |
+| Join natural | R ⨝ S | `R ⨝ S` |
+| Join con condición | R ⨝ cond S | `R ⨝ R.a=S.b S` |
+| Producto cartesiano | R × S | `R × S` |
+| Unión | R ∪ S | `R ∪ S` |
+| Intersección | R ∩ S | `R ∩ S` |
+| Diferencia | R − S | `R - S` |
+| División | R ÷ S | `R / S` |
+| Renombramiento | ρ alias (R) | `ρ Alias (R)` |

@@ -1,0 +1,365 @@
+---
+title: "Práctica DDL: Diseño y creación de esquemas en PostgreSQL"
+sidebarTitle: "Práctica DDL"
+description: "Práctica de DDL en PostgreSQL: crea y modifica tablas con ALTER TABLE, agrega restricciones CHECK, UNIQUE y FOREIGN KEY, y practica tablas con claves compuestas."
+---
+
+El Lenguaje de Definición de Datos (*Data Definition Language*, DDL) es el subconjunto de SQL que permite crear, modificar y eliminar estructuras dentro de una base de datos. A diferencia de las sentencias DML que manipulan filas, las instrucciones DDL operan sobre objetos del esquema: tablas, índices, secuencias y restricciones. En esta práctica trabajarás progresivamente con `CREATE TABLE`, `ALTER TABLE` y la definición de restricciones de integridad (`PRIMARY KEY`, `FOREIGN KEY`, `CHECK`, `UNIQUE`) en PostgreSQL, prestando especial atención a las claves compuestas y a las referencias entre tablas.
+
+<Tabs>
+  <Tab title="Tablas simples con restricciones">
+
+## Tablas simples con restricciones
+
+El punto de partida es crear una tabla sin restricciones explícitas y luego añadirlas de forma incremental con `ALTER TABLE`. Este flujo refleja situaciones reales donde heredas un esquema incompleto y debes reforzar su integridad sin recrear la tabla.
+
+### Creación inicial
+
+```sql
+-- Crear tabla básica sin restricciones
+CREATE TABLE IF NOT EXISTS productos (
+  codigo    VARCHAR(10),
+  nombre    VARCHAR(100) NOT NULL,
+  precio    NUMERIC(10, 2),
+  stock     INTEGER DEFAULT 0
+);
+```
+
+La tabla se crea sin llave primaria explícita. `NOT NULL` en `nombre` y el `DEFAULT 0` en `stock` son las únicas restricciones declaradas inline. El resto se añadirán con `ALTER TABLE`.
+
+### Agregar restricciones con ALTER TABLE
+
+```sql
+-- Agregar llave primaria
+ALTER TABLE productos
+ADD CONSTRAINT pk_productos PRIMARY KEY (codigo);
+
+-- Agregar CHECK para precio positivo
+ALTER TABLE productos
+ADD CONSTRAINT ck_precio_positivo CHECK (precio > 0);
+
+-- Agregar CHECK para stock no negativo
+ALTER TABLE productos
+ADD CONSTRAINT ck_stock_no_negativo CHECK (stock >= 0);
+```
+
+### Agregar restricción UNIQUE
+
+```sql
+-- El nombre del producto debe ser único
+ALTER TABLE productos
+ADD CONSTRAINT uq_nombre_producto UNIQUE (nombre);
+```
+
+### Verificar las restricciones creadas
+
+```sql
+-- Consultar todas las restricciones de la tabla en el catálogo
+SELECT conname AS restriccion,
+       contype AS tipo,
+       pg_get_constraintdef(oid) AS definicion
+FROM pg_constraint
+WHERE conrelid = 'productos'::regclass
+ORDER BY contype;
+```
+
+  </Tab>
+  <Tab title="Claves foráneas y compuestas">
+
+## Tablas con claves foráneas
+
+Este bloque trabaja con un escenario de tres tablas (`table1`, `table2`, `table3`) que ilustra claves primarias compuestas y claves foráneas que apuntan a claves compuestas. Es el patrón más desafiante del DDL relacional porque PostgreSQL exige que la clave foránea compuesta referencie exactamente las columnas que forman la clave primaria de la tabla padre.
+
+### Diagrama de dependencias
+
+```text
+table1 (PK: a)         table3 (PK: c, d)
+       ↑                      ↑
+       └──────── table2 ──────┘
+                 (PK: a, c, d)
+                 (FK: a → table1.a)
+                 (FK: c, d → table3.c, d)
+```
+
+### Creación de las tres tablas
+
+El orden importa: las tablas referenciadas (`table1`, `table3`) deben existir antes de crear la tabla que las referencia (`table2`).
+
+```sql
+CREATE TABLE IF NOT EXISTS table1 (
+  a VARCHAR(1),
+  b VARCHAR(1),
+  CONSTRAINT pk_table1 PRIMARY KEY (a)
+);
+
+CREATE TABLE IF NOT EXISTS table3 (
+  c VARCHAR(1),
+  d INT,
+  e VARCHAR(1),
+  CONSTRAINT pk_table3 PRIMARY KEY (c, d)
+);
+
+-- table2 referencia tanto a table1 como a table3
+CREATE TABLE IF NOT EXISTS table2 (
+  a VARCHAR(1),
+  c VARCHAR(1),
+  d INT,
+  CONSTRAINT pk_table2    PRIMARY KEY (a, c, d),
+  CONSTRAINT fk_a_t2      FOREIGN KEY (a)    REFERENCES table1 (a),
+  CONSTRAINT fk_c_t2      FOREIGN KEY (c, d) REFERENCES table3 (c, d)
+);
+```
+
+### Poblar las tablas con datos de prueba
+
+```sql
+-- Insertar en tabla1 primero (no tiene dependencias)
+INSERT INTO table1 (a, b) VALUES ('X', '1'), ('Y', '2'), ('Z', '3');
+
+-- Insertar en table3 (no tiene dependencias)
+INSERT INTO table3 (c, d, e) VALUES ('A', 1, 'α'), ('A', 2, 'β'), ('B', 1, 'γ');
+
+-- Insertar en table2 (debe referenciar valores existentes en table1 y table3)
+INSERT INTO table2 (a, c, d) VALUES ('X', 'A', 1), ('Y', 'A', 2), ('Z', 'B', 1);
+
+-- Esto fallará (viola FK hacia table1):
+-- INSERT INTO table2 (a, c, d) VALUES ('W', 'A', 1);
+
+-- Esto también fallará (viola FK compuesta hacia table3):
+-- INSERT INTO table2 (a, c, d) VALUES ('X', 'C', 9);
+```
+
+  </Tab>
+  <Tab title="ALTER TABLE avanzado">
+
+## Operaciones avanzadas con ALTER TABLE
+
+`ALTER TABLE` es la instrucción DDL para modificar la estructura de una tabla existente sin necesidad de borrarla y recrearla. Permite agregar o eliminar columnas, cambiar tipos de datos, renombrar objetos y gestionar restricciones.
+
+### Agregar columnas
+
+```sql
+-- Agregar columna con valor por defecto
+ALTER TABLE productos
+ADD COLUMN fecha_creacion TIMESTAMP DEFAULT NOW();
+
+-- Agregar columna nullable (sin valor por defecto)
+ALTER TABLE productos
+ADD COLUMN descripcion TEXT;
+
+-- Agregar columna con restricción NOT NULL (requiere DEFAULT si ya hay datos)
+ALTER TABLE productos
+ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE;
+```
+
+### Modificar tipos de columna
+
+```sql
+-- Cambiar tipo de dato (solo posible si los datos existentes son compatibles)
+ALTER TABLE productos
+ALTER COLUMN precio TYPE NUMERIC(12, 2);
+
+-- Cambiar valor por defecto
+ALTER TABLE productos
+ALTER COLUMN stock SET DEFAULT 10;
+
+-- Eliminar valor por defecto
+ALTER TABLE productos
+ALTER COLUMN stock DROP DEFAULT;
+```
+
+### Renombrar columnas y tablas
+
+```sql
+-- Renombrar una columna
+ALTER TABLE productos
+RENAME COLUMN codigo TO sku;
+
+-- Renombrar la tabla completa
+ALTER TABLE productos
+RENAME TO catalogo_productos;
+```
+
+### Eliminar restricciones
+
+<Warning>
+  Eliminar restricciones en un entorno de producción puede comprometer la integridad de los datos de forma irreversible. Antes de ejecutar `DROP CONSTRAINT`, verifica que no existen registros que violarían la restricción si esta se volviera a crear, y coordina el cambio con el equipo de desarrollo. Siempre trabaja con un backup reciente.
+</Warning>
+
+```sql
+-- Eliminar una restricción CHECK
+ALTER TABLE productos
+DROP CONSTRAINT ck_precio_positivo;
+
+-- Eliminar una restricción UNIQUE
+ALTER TABLE productos
+DROP CONSTRAINT uq_nombre_producto;
+
+-- Eliminar una clave foránea
+ALTER TABLE table2
+DROP CONSTRAINT fk_a_t2;
+```
+
+### Eliminar columnas
+
+```sql
+-- Eliminar una columna (los datos se pierden permanentemente)
+ALTER TABLE productos
+DROP COLUMN descripcion;
+
+-- Eliminar columna que puede ser referenciada (CASCADE elimina objetos dependientes)
+ALTER TABLE productos
+DROP COLUMN fecha_creacion CASCADE;
+```
+
+  </Tab>
+</Tabs>
+
+## Ejercicios de práctica
+
+Trabaja los siguientes ejercicios de forma independiente. Intenta resolver cada uno antes de expandir la solución.
+
+<AccordionGroup>
+  <Accordion title="Ejercicio 1: Esquema de biblioteca">
+    Crea las tablas para un sistema de biblioteca que gestione libros, autores y préstamos. Requisitos:
+    - Un libro puede tener varios autores (relación N:M).
+    - El ISBN del libro es la llave primaria (13 caracteres).
+    - El precio debe ser mayor a cero.
+    - La fecha de devolución debe ser posterior a la fecha de préstamo.
+    - Un socio no puede tener más de un préstamo activo del mismo libro simultáneamente.
+
+    **Solución:**
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS socios (
+      socio_id   SERIAL PRIMARY KEY,
+      nombre     VARCHAR(100) NOT NULL,
+      email      VARCHAR(150) UNIQUE NOT NULL,
+      activo     BOOLEAN NOT NULL DEFAULT TRUE
+    );
+
+    CREATE TABLE IF NOT EXISTS libros (
+      isbn       VARCHAR(13),
+      titulo     VARCHAR(200) NOT NULL,
+      precio     NUMERIC(8, 2),
+      anio       INT,
+      CONSTRAINT pk_libros            PRIMARY KEY (isbn),
+      CONSTRAINT ck_precio_libro      CHECK (precio > 0),
+      CONSTRAINT ck_anio_publicacion  CHECK (anio >= 1450)
+    );
+
+    CREATE TABLE IF NOT EXISTS autores (
+      autor_id   SERIAL PRIMARY KEY,
+      nombre     VARCHAR(100) NOT NULL,
+      apellido   VARCHAR(100) NOT NULL
+    );
+
+    -- Tabla intermedia N:M libros-autores
+    CREATE TABLE IF NOT EXISTS libro_autor (
+      isbn       VARCHAR(13),
+      autor_id   INT,
+      CONSTRAINT pk_libro_autor  PRIMARY KEY (isbn, autor_id),
+      CONSTRAINT fk_isbn         FOREIGN KEY (isbn)     REFERENCES libros (isbn),
+      CONSTRAINT fk_autor        FOREIGN KEY (autor_id) REFERENCES autores (autor_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS prestamos (
+      prestamo_id     SERIAL PRIMARY KEY,
+      socio_id        INT NOT NULL,
+      isbn            VARCHAR(13) NOT NULL,
+      fecha_prestamo  DATE NOT NULL DEFAULT CURRENT_DATE,
+      fecha_devolucion DATE,
+      devuelto        BOOLEAN NOT NULL DEFAULT FALSE,
+      CONSTRAINT fk_socio_prestamo  FOREIGN KEY (socio_id) REFERENCES socios (socio_id),
+      CONSTRAINT fk_libro_prestamo  FOREIGN KEY (isbn)     REFERENCES libros (isbn),
+      CONSTRAINT ck_fechas          CHECK (fecha_devolucion IS NULL OR fecha_devolucion > fecha_prestamo),
+      CONSTRAINT uq_prestamo_activo UNIQUE (socio_id, isbn, devuelto)
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Ejercicio 2: Modificar un esquema heredado">
+    Dado el siguiente esquema incompleto, aplica las modificaciones indicadas usando únicamente `ALTER TABLE`:
+
+    ```sql
+    -- Esquema heredado (ya existe en la base de datos)
+    CREATE TABLE empleados (
+      id_emp    INT,
+      nombre    VARCHAR(50),
+      salario   NUMERIC(8,2),
+      depto     VARCHAR(20)
+    );
+    ```
+
+    Cambios requeridos:
+    1. Agregar llave primaria en `id_emp`.
+    2. Agregar restricción `NOT NULL` en `nombre`.
+    3. Agregar `CHECK` para que `salario >= 1000`.
+    4. Agregar columna `fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE`.
+    5. Renombrar `depto` a `departamento`.
+
+    **Solución:**
+
+    ```sql
+    -- 1. Llave primaria
+    ALTER TABLE empleados
+    ADD CONSTRAINT pk_empleados PRIMARY KEY (id_emp);
+
+    -- 2. NOT NULL en nombre
+    ALTER TABLE empleados
+    ALTER COLUMN nombre SET NOT NULL;
+
+    -- 3. CHECK en salario
+    ALTER TABLE empleados
+    ADD CONSTRAINT ck_salario_minimo CHECK (salario >= 1000);
+
+    -- 4. Nueva columna con valor por defecto
+    ALTER TABLE empleados
+    ADD COLUMN fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE;
+
+    -- 5. Renombrar columna
+    ALTER TABLE empleados
+    RENAME COLUMN depto TO departamento;
+    ```
+  </Accordion>
+
+  <Accordion title="Ejercicio 3: Tabla con clave primaria compuesta y FK compuesta">
+    Diseña el esquema para un sistema de calificaciones universitario donde:
+    - Un estudiante se identifica por `estudiante_id`.
+    - Un curso se identifica por `curso_id` y `seccion` (la misma materia puede tener varias secciones).
+    - Una matrícula vincula un estudiante con un curso+sección específico.
+    - La nota debe estar entre 0.0 y 5.0.
+
+    **Solución:**
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS estudiantes (
+      estudiante_id  VARCHAR(10),
+      nombre         VARCHAR(100) NOT NULL,
+      email          VARCHAR(150) UNIQUE,
+      CONSTRAINT pk_estudiantes PRIMARY KEY (estudiante_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS cursos (
+      curso_id   VARCHAR(8),
+      seccion    INT,
+      nombre     VARCHAR(150) NOT NULL,
+      creditos   INT NOT NULL DEFAULT 3,
+      CONSTRAINT pk_cursos        PRIMARY KEY (curso_id, seccion),
+      CONSTRAINT ck_creditos      CHECK (creditos BETWEEN 1 AND 6)
+    );
+
+    CREATE TABLE IF NOT EXISTS matriculas (
+      estudiante_id  VARCHAR(10),
+      curso_id       VARCHAR(8),
+      seccion        INT,
+      nota           NUMERIC(3, 1),
+      fecha_matricula DATE NOT NULL DEFAULT CURRENT_DATE,
+      CONSTRAINT pk_matriculas       PRIMARY KEY (estudiante_id, curso_id, seccion),
+      CONSTRAINT fk_estudiante_mat   FOREIGN KEY (estudiante_id)      REFERENCES estudiantes (estudiante_id),
+      CONSTRAINT fk_curso_mat        FOREIGN KEY (curso_id, seccion)  REFERENCES cursos (curso_id, seccion),
+      CONSTRAINT ck_nota_rango       CHECK (nota IS NULL OR nota BETWEEN 0.0 AND 5.0)
+    );
+    ```
+  </Accordion>
+</AccordionGroup>

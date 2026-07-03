@@ -1,24 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Bases de Datos Relacionales 2026-I",
+  "projectType": "data-platform",
+  "projectName": "Bases de Datos Relacionales 2026-I",
+  "projectDescription": "Curso universitario de bases de datos relacionales con recursos de teoría, talleres prácticos de SQL/PostgreSQL, ejercicios de álgebra relacional, modelamiento EER y bases de datos vectoriales con pgvector.",
   "theme": "aspen",
-  "colors": {
-    "primary": "#7c3cec",
-    "light": "#bc97f4",
-    "dark": "#7c3cec"
-  },
-  "favicon": "https://media.brand.dev/ddee60ee-5bd8-48ee-9908-19e049748ecb.svg",
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/tutosrive/db-relacionales-2026-1"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/tutosrive/db-relacionales-2026-1"
-    }
-  },
+  "primaryColor": "#7c3cec",
+  "lightColor": "#bc97f4",
+  "darkColor": null,
   "navigation": {
     "tabs": [
       {
@@ -97,5 +84,24 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Talleres de modelamiento EER con draw.io",
+    "Scripts DDL y DML para PostgreSQL/Supabase",
+    "Ejercicios de álgebra relacional con RelaX",
+    "Taller de chunking y pgvector con Neon en Google Colab",
+    "Prácticas de integridad y restricciones en PostgreSQL",
+    "Proyectos de referencia con esquemas relacionales completos (Casino, EPS)",
+    "Notas de clase y material teórico en PDF",
+    "Bases de datos vectoriales con pgvector"
+  ],
+  "publicApiSurface": [
+    "CREATE TABLE / ALTER TABLE (DDL)",
+    "INSERT / UPDATE / DELETE / SELECT (DML)",
+    "Operadores álgebra relacional: σ, π, ⨝, ρ, ∪, ∩, −, ÷",
+    "pgvector: extensión de vectores en PostgreSQL",
+    "Supabase SQL Editor",
+    "RelaX (herramienta de álgebra relacional)",
+    "Google Colab notebooks (Jupyter)"
+  ]
 }

@@ -1,0 +1,179 @@
+---
+title: "Taller 6: Bases de datos vectoriales con pgvector y Neon en Colab"
+sidebarTitle: "Taller 6 – pgvector"
+description: "Implementa búsqueda semántica con pgvector en una base de datos PostgreSQL Neon usando Google Colab: chunking de texto, embeddings y consultas de similitud vectorial."
+---
+
+Las bases de datos vectoriales han emergido como una pieza fundamental en las arquitecturas modernas de inteligencia artificial. A diferencia de las bases de datos relacionales tradicionales —que sobresalen en consultas estructuradas, transacciones y relaciones entre entidades—, las bases de datos vectoriales permiten almacenar y consultar **representaciones numéricas de significado semántico**. Esta capacidad las hace indispensables en aplicaciones como búsqueda semántica, sistemas de recomendación y, sobre todo, en patrones RAG (*Retrieval Augmented Generation*) donde un modelo de lenguaje necesita recuperar contexto relevante antes de generar una respuesta. En este taller aprenderás a habilitar `pgvector` en una instancia PostgreSQL serverless de Neon, a generar embeddings desde un notebook de Google Colab y a ejecutar consultas de similitud vectorial directamente en SQL.
+
+## Conceptos clave
+
+Antes de comenzar con la implementación, es importante comprender los bloques conceptuales sobre los que se apoya el taller.
+
+**Vectores y embeddings**
+
+Un *embedding* es una representación numérica densa de un fragmento de texto, imagen u otro dato no estructurado. Modelos como `sentence-transformers` transforman una oración en un vector de cientos de dimensiones (por ejemplo, 384 o 768 números de punto flotante) de modo que textos semánticamente similares quedan cerca en ese espacio vectorial. Esta propiedad geométrica es la que permite encontrar documentos relevantes sin necesidad de coincidencia exacta de palabras clave.
+
+**pgvector**
+
+`pgvector` es una extensión de código abierto para PostgreSQL que añade un tipo de dato `vector` y operadores de distancia optimizados. Con ella, PostgreSQL puede funcionar como base de datos vectorial sin abandonar las ventajas del modelo relacional: transacciones ACID, joins, restricciones de integridad y SQL estándar. No necesitas una base de datos separada para la parte vectorial de tu aplicación.
+
+**Neon**
+
+Neon es una plataforma de PostgreSQL *serverless* con escalado automático y una capa gratuita generosa. Separa el almacenamiento del cómputo, lo que permite pausar automáticamente instancias inactivas y escalar bajo demanda. Para este taller usaremos el nivel gratuito, que soporta `pgvector` de manera nativa y proporciona una cadena de conexión compatible con cualquier cliente PostgreSQL estándar.
+
+**Chunking**
+
+Los modelos de embedding tienen una ventana de tokens limitada (típicamente 512 tokens). Para procesar documentos largos, se dividen en segmentos (*chunks*) más pequeños con cierto solapamiento entre ellos. El solapamiento evita que información importante quede fragmentada en el límite entre dos chunks y mejora la calidad de la recuperación.
+
+**RAG (Retrieval Augmented Generation)**
+
+RAG es un patrón arquitectónico que combina recuperación de información con generación de texto. Cuando un usuario hace una pregunta, el sistema: (1) convierte la pregunta en un embedding, (2) busca en la base de datos vectorial los fragmentos más similares, (3) incluye esos fragmentos como contexto en el *prompt* del LLM, y (4) el modelo genera una respuesta fundamentada en ese contexto real. Esto reduce las alucinaciones y permite que el modelo responda sobre información actualizada sin necesidad de re-entrenamiento.
+
+## Configuración del entorno
+
+<Steps>
+  <Step title="Crear una cuenta gratuita en Neon">
+    Visita [neon.tech](https://neon.tech) y regístrate con tu cuenta de Google o GitHub. El plan gratuito incluye un proyecto con almacenamiento suficiente para este taller y soporte completo para `pgvector`.
+  </Step>
+
+  <Step title="Crear una nueva base de datos en Neon">
+    Una vez dentro del dashboard de Neon:
+    1. Haz clic en **New Project**.
+    2. Asigna un nombre al proyecto (por ejemplo, `bdr-taller6`).
+    3. Selecciona la región más cercana (generalmente `us-east-1` o `eu-central-1`).
+    4. Neon creará automáticamente una base de datos llamada `neondb`. Puedes dejarla con ese nombre o renombrarla.
+    5. Copia la **cadena de conexión** (*connection string*) desde la pestaña **Connection Details**. Tendrá el formato:
+    ```text
+    postgresql://usuario:contraseña@ep-xxx-yyy.us-east-2.aws.neon.tech/neondb?sslmode=require
+    ```
+  </Step>
+
+  <Step title="Habilitar la extensión pgvector">
+    Conéctate a tu base de datos usando el editor SQL integrado de Neon (pestaña **SQL Editor**) o cualquier cliente PostgreSQL, y ejecuta:
+    ```sql
+    CREATE EXTENSION IF NOT EXISTS vector;
+    ```
+    Verifica que la extensión quedó instalada:
+    ```sql
+    SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
+    ```
+  </Step>
+
+  <Step title="Abrir el notebook de Google Colab del profesor">
+    El notebook del profesor está disponible en el repositorio del curso. Ábrelo directamente en Google Colab haciendo clic en el enlace correspondiente de la sección de recursos. El notebook contiene todas las celdas necesarias para instalar dependencias, conectarse a Neon y ejecutar el pipeline completo.
+
+    <Note>
+      El enlace al notebook de Colab se publica en el repositorio del curso y en el espacio de la asignatura en el LMS institucional. Si no tienes acceso, contacta al profesor antes de la sesión del taller.
+    </Note>
+  </Step>
+
+  <Step title="Conectar Colab a tu base de datos Neon">
+    En la primera celda de configuración del notebook, pega tu cadena de conexión en la variable `DATABASE_URL`:
+    ```python
+    DATABASE_URL = "postgresql://usuario:contraseña@ep-xxx.neon.tech/neondb?sslmode=require"
+    ```
+    El notebook usará `psycopg2` para conectarse. Ejecuta la celda de prueba de conexión para confirmar que la comunicación con Neon funciona correctamente antes de continuar.
+  </Step>
+
+  <Step title="Ejecutar el pipeline de chunking y embeddings">
+    El pipeline tiene tres etapas principales:
+    1. **Carga de documentos**: el notebook incluye un corpus de ejemplo en texto plano.
+    2. **Chunking**: el texto se divide en fragmentos solapados usando la función `chunk_text`.
+    3. **Generación de embeddings**: cada chunk se convierte en un vector usando un modelo `sentence-transformers` y se inserta en la tabla `documents` de PostgreSQL.
+
+    Ejecuta las celdas en orden. El proceso puede tomar algunos minutos dependiendo del tamaño del corpus.
+  </Step>
+
+  <Step title="Ejecutar consultas de similitud vectorial">
+    Una vez poblada la tabla, ejecuta las consultas de búsqueda semántica. Ingresa una pregunta en lenguaje natural en la celda de consulta, el notebook la convertirá en un embedding y ejecutará la búsqueda con el operador `<=>` de pgvector. Observa los resultados y compáralos con una búsqueda por palabras clave tradicional.
+  </Step>
+</Steps>
+
+## SQL para pgvector
+
+Los siguientes bloques SQL son los comandos fundamentales que usarás durante el taller. Puedes ejecutarlos tanto desde el SQL Editor de Neon como desde el notebook de Colab.
+
+```sql
+-- Habilitar la extensión pgvector
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Crear tabla con columna vectorial (384 dimensiones para sentence-transformers)
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  content TEXT,
+  embedding vector(384)
+);
+
+-- Búsqueda por similitud coseno (los 5 más similares)
+SELECT id, content, 1 - (embedding <=> '[0.1, 0.2, ...]'::vector) AS similarity
+FROM documents
+ORDER BY embedding <=> '[0.1, 0.2, ...]'::vector
+LIMIT 5;
+
+-- Crear un índice para búsquedas más rápidas (IVFFlat)
+CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+```
+
+<Tip>
+  El número de dimensiones del vector (`384` en el ejemplo) debe coincidir **exactamente** con la dimensionalidad de salida del modelo de embedding que uses. Los modelos `all-MiniLM-L6-v2` producen 384 dimensiones; `all-mpnet-base-v2` produce 768; los modelos de OpenAI `text-embedding-3-small` producen 1536. Cambiar el modelo después de poblar la tabla requiere re-generar todos los embeddings.
+</Tip>
+
+## Operadores de distancia en pgvector
+
+pgvector expone tres operadores de distancia, cada uno adecuado para diferentes tipos de embeddings y casos de uso:
+
+| Operador | Distancia | Cuándo usarlo |
+|----------|-----------|---------------|
+| `<->` | Euclidiana (L2) | Embeddings no normalizados; refleja magnitud y dirección |
+| `<#>` | Producto interno negativo | Embeddings normalizados; más eficiente en algunos índices |
+| `<=>` | Coseno | **Caso general para texto**; insensible a la magnitud del vector |
+
+Para búsqueda semántica de texto, `<=>` (distancia coseno) es casi siempre la opción correcta. La distancia coseno mide el ángulo entre vectores, no su magnitud, lo que hace las comparaciones robustas independientemente de la longitud del texto original.
+
+## Función de chunking en Python
+
+El siguiente código implementa el chunking con solapamiento que usa el notebook del taller. Es una implementación deliberadamente simple para que puedas entender el concepto antes de explorar librerías más sofisticadas como `LangChain` o `LlamaIndex`.
+
+```python
+def chunk_text(text, chunk_size=500, overlap=50):
+    """Split text into overlapping chunks for embedding."""
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk = ' '.join(words[i:i + chunk_size])
+        chunks.append(chunk)
+    return chunks
+```
+
+El parámetro `chunk_size` controla cuántas palabras tiene cada fragmento, y `overlap` determina cuántas palabras del chunk anterior se repiten al inicio del siguiente. Un overlap del 10% del tamaño del chunk (por ejemplo, 50 sobre 500) es un punto de partida razonable para la mayoría de los corpus.
+
+## Casos de uso: relacional vs. vectorial
+
+<CardGroup cols={2}>
+  <Card title="Base de datos relacional" icon="table">
+    - Consultas estructuradas con SQL estándar
+    - Búsqueda exacta por campos (ID, fecha, categoría)
+    - Reportes y agregaciones sobre datos tabulares
+    - Transacciones con garantías ACID
+    - Relaciones entre entidades con integridad referencial
+    - Ideal para: ERP, e-commerce, sistemas bancarios
+  </Card>
+  <Card title="Base de datos vectorial (pgvector)" icon="magnifying-glass">
+    - Búsqueda semántica por significado, no por palabras exactas
+    - Recuperación de documentos similares
+    - Recomendaciones basadas en contenido
+    - Pipeline RAG para chatbots con contexto propio
+    - Detección de duplicados semánticos
+    - Ideal para: motores de búsqueda, asistentes IA, análisis de texto
+  </Card>
+</CardGroup>
+
+La ventaja de usar `pgvector` sobre una base de datos vectorial dedicada (como Pinecone o Weaviate) es que puedes combinar ambos paradigmas en una sola base de datos. Por ejemplo, puedes filtrar documentos por fecha o autor (SQL relacional) y luego buscar el más similar semánticamente dentro de ese subconjunto (pgvector), todo en una sola consulta.
+
+## Recursos del taller
+
+<Note>
+  El notebook de Google Colab del profesor está disponible en el repositorio del curso. Contiene el corpus de ejemplo, todas las celdas del pipeline (instalación de dependencias, conexión a Neon, chunking, generación de embeddings e inserción), y las consultas de demostración. Accede al repositorio del curso para obtener el enlace directo que abre el notebook en Colab con un solo clic.
+</Note>

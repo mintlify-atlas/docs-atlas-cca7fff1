@@ -1,0 +1,202 @@
+---
+title: "Modelo Entidad-Relación: diseño conceptual de bases de datos"
+sidebarTitle: "Modelo E-R"
+description: "Aprende a diseñar esquemas de bases de datos con el modelo entidad-relación (E-R) y su extensión EER: entidades, atributos, relaciones y cardinalidades."
+---
+
+El **modelado conceptual** es la fase del diseño de bases de datos en la que describimos la realidad del negocio de forma independiente de cualquier tecnología o motor de base de datos. El **modelo Entidad-Relación (E-R)**, propuesto por Peter Chen en 1976, es la notación más utilizada para este propósito: nos permite identificar qué objetos existen en el dominio del problema, qué información describimos de ellos y cómo se relacionan entre sí. Dominar el modelo E-R es el primer paso antes de escribir una sola línea de SQL, porque un buen diagrama conceptual previene errores costosos de diseño que serían difíciles de corregir una vez que la base de datos está en producción.
+
+---
+
+## Componentes fundamentales del modelo E-R
+
+### Entidades y tipos de entidad
+
+Una **entidad** representa un objeto o concepto del mundo real sobre el que queremos almacenar información. Un **tipo de entidad** agrupa todas las instancias que comparten los mismos atributos (es análogo a una "clase" en programación orientada a objetos).
+
+En el esquema del curso identificamos tres tipos de entidad principales:
+
+- **ALUMNO** — una persona matriculada en la institución.
+- **CURSO** — una oferta académica con horario, duración y cupo.
+- **PROFESOR** — el docente responsable de impartir uno o más cursos.
+
+<Note>
+  Por convención, los nombres de tipos de entidad se escriben en **mayúsculas** en los diagramas E-R, y cada instancia individual se llama simplemente "entidad" (p. ej., el alumno con cédula 1023456789 es una entidad del tipo ALUMNO).
+</Note>
+
+---
+
+### Atributos
+
+Los atributos describen las propiedades de un tipo de entidad. Existen varias categorías:
+
+| Tipo de atributo | Descripción | Ejemplo en el esquema |
+|-----------------|-------------|----------------------|
+| **Simple (atómico)** | No se puede descomponer en partes más pequeñas | `cedula`, `sexo` |
+| **Compuesto** | Se puede descomponer en sub-atributos | `nombre_completo` → `nombre` + `apellido` |
+| **Derivado** | Se calcula a partir de otros atributos | `edad` ← `fecha_nacimiento` |
+| **Multivaluado** | Puede tomar más de un valor simultáneamente | `telefonos` (varios teléfonos por alumno) |
+| **Clave (key)** | Identifica unívocamente cada instancia | `cedula` en ALUMNO, `codcurso` en CURSO |
+
+<Tip>
+  Los atributos derivados (como `edad`) **no deben almacenarse** en la base de datos; se calculan en tiempo de consulta con funciones como `AGE(fecha_nacimiento)` en PostgreSQL. Almacenarlos introduciría redundancia y posibles inconsistencias.
+</Tip>
+
+---
+
+### Relaciones
+
+Una **relación** (o tipo de relación) describe una asociación entre dos o más tipos de entidad.
+
+#### Cardinalidad
+
+La cardinalidad especifica cuántas instancias de un tipo de entidad pueden asociarse con instancias del otro:
+
+| Notación | Significado | Ejemplo |
+|----------|-------------|---------|
+| **1:1** | Un alumno tiene exactamente un expediente académico | ALUMNO — EXPEDIENTE |
+| **1:N** | Un profesor puede impartir varios cursos | PROFESOR — CURSO |
+| **M:N** | Un alumno puede estar en varios cursos y un curso tiene varios alumnos | ALUMNO — CURSO |
+
+#### Grado de una relación
+
+- **Binaria:** entre dos tipos de entidad (la más común).
+- **Ternaria:** entre tres tipos de entidad simultáneamente (p. ej., un ALUMNO recibe una CALIFICACIÓN de un PROFESOR en un CURSO).
+
+---
+
+### Restricciones de participación
+
+- **Participación total (obligatoria):** toda instancia del tipo de entidad debe participar en la relación. Se representa con **doble línea** en el diagrama. Ejemplo: todo CURSO *debe* tener un PROFESOR asignado.
+- **Participación parcial (opcional):** algunas instancias pueden no participar. Se representa con línea simple. Ejemplo: un PROFESOR *puede* no tener cursos asignados en un período dado.
+
+---
+
+### Entidades débiles
+
+Una **entidad débil** no posee un atributo clave propio suficiente para identificarse por sí sola; depende de otra entidad (su **entidad propietaria**) para su identificación. En el diagrama se representa con un **rectángulo doble**.
+
+**Ejemplo:** `DETALLE_PAGO` es una entidad débil de `PAGO`. Un detalle de pago solo tiene sentido en el contexto de un pago específico.
+
+<Tip>
+  Antes de escribir el DDL, identifica todas las entidades débiles del modelo. En SQL se traducen como tablas cuya clave primaria incluye la clave foránea de la entidad propietaria más un discriminador local.
+</Tip>
+
+---
+
+## Ejemplo práctico: esquema universitario del curso
+
+El siguiente diagrama conceptual describe el dominio del curso:
+
+```
+ALUMNO (cedula*, nombre, apellido, direccion, sexo, fecha_nacimiento)
+  |
+  | M:N  [alumno_curso]
+  |
+CURSO (codcurso*, nombrecurso, max_alumnos, titulo, fecha_inicio, fecha_fin, num_horas)
+  |
+  | N:1
+  |
+PROFESOR (cedprofesor*, nombre, apellido, ...)
+```
+
+**Relaciones:**
+- `ALUMNO` — `CURSO`: relación **M:N** materializada mediante la tabla asociativa `alumno_curso`.
+- `PROFESOR` — `CURSO`: relación **1:N** (un profesor imparte muchos cursos; cada curso tiene exactamente un profesor). La clave foránea `cedprofesor` vive en `cursos`.
+
+### DDL en PostgreSQL
+
+El siguiente código, extraído del taller de DDL del curso, implementa este esquema conceptual:
+
+```sql
+-- Tabla ALUMNO
+CREATE TABLE IF NOT EXISTS alumnos (
+  cedula           VARCHAR(15)  NOT NULL,
+  nombre           VARCHAR(50)  NOT NULL,
+  apellido         VARCHAR(50)  NOT NULL,
+  direccion        VARCHAR(100),
+  sexo             VARCHAR(1),
+  fecha_nacimiento DATE
+);
+
+-- Tabla CURSO
+CREATE TABLE IF NOT EXISTS cursos (
+  codcurso    INTEGER      NOT NULL,
+  nombrecurso VARCHAR(50)  NOT NULL,
+  cedprofesor VARCHAR(15)  NOT NULL,   -- FK → profesor
+  max_alumnos INTEGER,
+  titulo      VARCHAR(80),
+  fecha_inicio DATE,
+  fecha_fin    DATE,
+  num_horas   NUMERIC(5,2)
+);
+
+-- Tabla asociativa ALUMNO_CURSO (relación M:N)
+CREATE TABLE IF NOT EXISTS alumno_curso (
+  cedula    VARCHAR(15) NOT NULL,   -- FK → alumnos
+  codcurso  INTEGER     NOT NULL    -- FK → cursos
+);
+```
+
+<Note>
+  La tabla `alumno_curso` es la traducción directa de la relación M:N del diagrama E-R. En el modelo relacional, **toda relación M:N se implementa como una tabla intermedia** cuya clave primaria es la combinación de las claves foráneas de ambas entidades participantes.
+</Note>
+
+---
+
+## Extensiones del modelo E-R (modelo EER)
+
+El **modelo EER (Enhanced E-R)** agrega mecanismos de abstracción inspirados en la orientación a objetos:
+
+### Especialización
+
+Una entidad de mayor nivel (superclase) se descompone en subclases que heredan sus atributos y añaden los propios.
+
+**Ejemplo:**
+```
+PERSONA (cedula, nombre, apellido)
+  ├── ALUMNO (fecha_matricula, promedio)
+  └── PROFESOR (titulo_academico, departamento)
+```
+
+**Tipos de especialización:**
+- **Disjunta (d):** una persona es ALUMNO *o* PROFESOR, no ambos.
+- **Solapada (o):** una persona puede ser ALUMNO *y* PROFESOR simultáneamente.
+
+### Generalización
+
+Proceso inverso a la especialización: se identifican atributos comunes en varias entidades y se agrupan en una superclase. Es una forma de bottom-up de llegar al mismo resultado.
+
+### Agregación
+
+Permite tratar una **relación como si fuera una entidad**, para asociarla con otras entidades. Útil para relaciones ternarias.
+
+**Ejemplo:** La asociación entre ALUMNO y CURSO (matrícula) puede agregarse y relacionarse con CALIFICACION, donde la calificación depende de la matrícula específica y no solo del alumno o del curso por separado.
+
+---
+
+## Preguntas frecuentes sobre el modelo E-R
+
+<AccordionGroup>
+  <Accordion title="¿Cuál es la diferencia entre una entidad y un atributo?">
+    Una **entidad** tiene existencia propia en el dominio y puede relacionarse con otras entidades; generalmente necesitamos almacenar múltiples propiedades de ella o tiene relaciones con otros objetos. Un **atributo** es simplemente una propiedad descriptiva de una entidad y no tiene existencia independiente.
+
+    Regla práctica: si lo estás describiendo con más de un campo, o si tiene relaciones con otras cosas, probablemente es una entidad. Por ejemplo, `direccion` podría ser un atributo compuesto de `alumnos`, pero si necesitas validar la ciudad contra un catálogo, convendría convertirla en entidad `DIRECCION`.
+  </Accordion>
+
+  <Accordion title="¿Cuándo usar una tabla asociativa y cuándo agregar atributos extra a la relación?">
+    Siempre que una relación M:N tenga **atributos propios** (información que solo cobra sentido en el contexto de esa asociación), esos atributos van en la tabla asociativa. Ejemplo: `alumno_curso` podría tener una columna `nota_final` o `fecha_matricula`, ya que esa información no pertenece ni al alumno ni al curso por separado, sino a la inscripción específica.
+  </Accordion>
+
+  <Accordion title="¿Qué hago si un alumno puede ser también profesor?">
+    Debes modelar una **superclase PERSONA** con especialización solapada (overlapping) en ALUMNO y PROFESOR. En SQL, esto se traduce típicamente con una tabla `personas` base y tablas `alumnos` / `profesores` que referencian a `personas` mediante su clave primaria (patrón de herencia de tabla por subclase o tabla única con discriminador).
+  </Accordion>
+
+  <Accordion title="¿Cuándo una relación es ternaria y no dos binarias?">
+    Una relación es genuinamente ternaria cuando **la combinación de las tres entidades** aporta información que no puede capturarse con dos relaciones binarias. Ejemplo: `MEDICO` prescribe `MEDICAMENTO` a `PACIENTE` — la dosis puede variar según el médico, el medicamento y el paciente en conjunto. Si puedes descomponerla sin perder semántica, usa dos binarias.
+  </Accordion>
+
+  <Accordion title="¿Es obligatorio pasar por el modelo E-R antes del DDL?">
+    Técnicamente no es obligatorio, pero **es altamente recomendable**. Saltarse el diseño conceptual aumenta drásticamente la probabilidad de redundancias, relaciones mal definidas y migraciones costosas en producción. El tiempo invertido en el diagrama E-R siempre se recupera durante la implementación y el mantenimiento.
+  </Accordion>
+</AccordionGroup>

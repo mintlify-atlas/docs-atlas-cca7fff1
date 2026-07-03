@@ -1,0 +1,364 @@
+---
+title: "Normalización de bases de datos: 1FN, 2FN, 3FN y BCNF"
+sidebarTitle: "Normalización"
+description: "Guía de normalización de bases de datos relacionales: primera, segunda y tercera forma normal, BCNF y dependencias funcionales con ejemplos prácticos en SQL."
+---
+
+La **normalización** es el proceso sistemático de organizar los atributos y tablas de una base de datos relacional para **minimizar la redundancia de datos** y **eliminar las anomalías de actualización, inserción y eliminación**. Una base de datos no normalizada puede contener el mismo dato en múltiples lugares: si ese dato cambia, hay que actualizarlo en todos lados simultáneamente, y si alguna actualización falla, la base de datos queda en un estado inconsistente. La teoría de la normalización, desarrollada por Edgar F. Codd y posteriormente extendida por otros investigadores, ofrece un conjunto de reglas formales —las **formas normales**— que guían el diseño hacia esquemas más robustos, predecibles y fáciles de mantener.
+
+---
+
+## Dependencias funcionales
+
+Antes de aplicar cualquier forma normal es necesario entender el concepto central de la normalización: la **dependencia funcional**.
+
+**Definición:** Dado un esquema de relación R, se dice que el atributo B depende funcionalmente del atributo A (notación: `A → B`) si, para cada valor de A en R, existe **exactamente un** valor de B asociado.
+
+**Ejemplos en el dominio del curso:**
+
+| Dependencia | Lectura |
+|-------------|---------|
+| `cedula → nombre, apellido` | La cédula de un alumno determina unívocamente su nombre y apellido |
+| `codcurso → nombrecurso, num_horas` | El código del curso determina su nombre y duración |
+| `codcurso → cedprofesor` | Cada curso tiene asignado exactamente un profesor |
+| `{cedula, codcurso} → nota_final` | La nota final depende de la combinación alumno-curso |
+
+<Note>
+  La dependencia funcional es una restricción semántica del dominio del negocio, **no** algo que se infiere automáticamente de los datos actuales. Que en este momento dos alumnos tengan la misma dirección no significa que `direccion → cedula`; hay que entender las reglas del negocio.
+</Note>
+
+---
+
+## El proceso de normalización
+
+<Steps>
+  <Step title="Partir de una tabla universal (relación universal)">
+    El punto de partida es una única tabla que contiene **todos** los atributos del dominio. Esta tabla generalmente viola varias formas normales y sirve como entrada al proceso.
+
+    **Tabla inicial — `inscripcion_completa` (no normalizada):**
+
+    | cedula | nombre_alumno | apellido_alumno | codcurso | nombrecurso | num_horas | cedprofesor | nombre_profesor | nota_final | telefonos_alumno |
+    |--------|---------------|-----------------|----------|-------------|-----------|-------------|-----------------|------------|-----------------|
+    | 101 | Ana | Gómez | C01 | SQL Avanzado | 40 | P01 | Martínez | 4.5 | 3001234, 3109876 |
+    | 101 | Ana | Gómez | C02 | Modelado ER | 30 | P02 | Rodríguez | 3.8 | 3001234, 3109876 |
+    | 102 | Luis | Pérez | C01 | SQL Avanzado | 40 | P01 | Martínez | 4.0 | 3205555 |
+
+    **Anomalías visibles:**
+    - **Actualización:** si el profesor Martínez cambia de nombre, hay que actualizarlo en cada fila donde aparezca.
+    - **Inserción:** no se puede registrar un curso sin tener al menos un alumno inscrito.
+    - **Eliminación:** si Luis Pérez cancela C01, se pierde la información de que el profesor P01 imparte ese curso.
+  </Step>
+
+  <Step title="Aplicar la Primera Forma Normal (1FN)">
+    ### Primera Forma Normal (1FN)
+
+    Una tabla está en **1FN** si:
+    1. Todos los atributos contienen **valores atómicos** (indivisibles).
+    2. No existen **grupos repetitivos** ni listas de valores en una sola celda.
+    3. Cada fila es única (existe una clave primaria).
+
+    **Violación identificada:** la columna `telefonos_alumno` contiene múltiples valores separados por comas → viola la atomicidad.
+
+    **Tabla que viola 1FN:**
+
+    | cedula | nombre_alumno | telefonos_alumno |
+    |--------|---------------|-----------------|
+    | 101 | Ana Gómez | 3001234, 3109876 |
+    | 102 | Luis Pérez | 3205555 |
+
+    **Solución — separar los teléfonos en una tabla propia:**
+
+    ```sql
+    -- Tabla principal de alumnos (ahora atómica)
+    CREATE TABLE alumnos (
+      cedula           VARCHAR(15)  NOT NULL,
+      nombre           VARCHAR(50)  NOT NULL,
+      apellido         VARCHAR(50)  NOT NULL,
+      direccion        VARCHAR(100),
+      sexo             VARCHAR(1),
+      fecha_nacimiento DATE,
+      CONSTRAINT pk_alumnos PRIMARY KEY (cedula)
+    );
+
+    -- Tabla separada para el atributo multivaluado 'telefono'
+    CREATE TABLE alumno_telefonos (
+      cedula   VARCHAR(15) NOT NULL,
+      telefono VARCHAR(15) NOT NULL,
+      CONSTRAINT pk_alumno_telefonos PRIMARY KEY (cedula, telefono),
+      CONSTRAINT fk_alumno_tel FOREIGN KEY (cedula)
+        REFERENCES alumnos(cedula) ON DELETE CASCADE
+    );
+    ```
+
+    <Warning>
+      Un error frecuente en 1FN es usar columnas del tipo `telefono1`, `telefono2`, `telefono3` para evitar la tabla separada. Esto también viola 1FN (grupos repetitivos disfrazados) y además limita el número máximo de teléfonos de forma arbitraria.
+    </Warning>
+  </Step>
+
+  <Step title="Aplicar la Segunda Forma Normal (2FN)">
+    ### Segunda Forma Normal (2FN)
+
+    Una tabla está en **2FN** si:
+    1. Está en 1FN.
+    2. Todos los atributos no clave dependen de **toda la clave primaria** (no solo de una parte de ella).
+
+    La 2FN solo es relevante cuando la clave primaria es **compuesta**. Una dependencia parcial ocurre cuando un atributo depende solo de un subconjunto de la clave.
+
+    **Tabla que viola 2FN:**
+
+    Supongamos que consolidamos la inscripción en una sola tabla con PK compuesta `{cedula, codcurso}`:
+
+    | cedula | codcurso | nombre_alumno | nombrecurso | num_horas | nota_final |
+    |--------|----------|---------------|-------------|-----------|------------|
+    | 101 | C01 | Ana | SQL Avanzado | 40 | 4.5 |
+    | 101 | C02 | Ana | Modelado ER | 30 | 3.8 |
+    | 102 | C01 | Luis | SQL Avanzado | 40 | 4.0 |
+
+    **Dependencias parciales:**
+    - `cedula → nombre_alumno` (depende solo de cedula, no de la PK completa)
+    - `codcurso → nombrecurso, num_horas` (depende solo de codcurso)
+    - `{cedula, codcurso} → nota_final` (depende correctamente de toda la PK)
+
+    **Solución — descomponer en tablas con dependencias completas:**
+
+    ```sql
+    -- Datos del alumno dependen solo de cedula
+    CREATE TABLE alumnos (
+      cedula           VARCHAR(15) NOT NULL,
+      nombre           VARCHAR(50) NOT NULL,
+      apellido         VARCHAR(50) NOT NULL,
+      direccion        VARCHAR(100),
+      sexo             VARCHAR(1),
+      fecha_nacimiento DATE,
+      CONSTRAINT pk_alumnos PRIMARY KEY (cedula)
+    );
+
+    -- Datos del curso dependen solo de codcurso
+    CREATE TABLE cursos (
+      codcurso     INTEGER      NOT NULL,
+      nombrecurso  VARCHAR(50)  NOT NULL,
+      num_horas    NUMERIC(5,2),
+      max_alumnos  INTEGER,
+      titulo       VARCHAR(80),
+      fecha_inicio DATE,
+      fecha_fin    DATE,
+      CONSTRAINT pk_cursos PRIMARY KEY (codcurso)
+    );
+
+    -- La nota_final depende de la combinación alumno + curso
+    CREATE TABLE alumno_curso (
+      cedula      VARCHAR(15)   NOT NULL,
+      codcurso    INTEGER       NOT NULL,
+      nota_final  NUMERIC(3,1),
+      CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula, codcurso),
+      CONSTRAINT fk_ac_alumno  FOREIGN KEY (cedula)
+        REFERENCES alumnos(cedula),
+      CONSTRAINT fk_ac_curso   FOREIGN KEY (codcurso)
+        REFERENCES cursos(codcurso)
+    );
+    ```
+  </Step>
+
+  <Step title="Aplicar la Tercera Forma Normal (3FN)">
+    ### Tercera Forma Normal (3FN)
+
+    Una tabla está en **3FN** si:
+    1. Está en 2FN.
+    2. No existen **dependencias transitivas**: ningún atributo no clave depende de otro atributo no clave.
+
+    **Tabla que viola 3FN:**
+
+    | codcurso | nombrecurso | cedprofesor | nombre_profesor | departamento_profesor |
+    |----------|-------------|-------------|-----------------|----------------------|
+    | C01 | SQL Avanzado | P01 | Martínez | Ingeniería |
+    | C02 | Modelado ER | P02 | Rodríguez | Sistemas |
+    | C03 | NoSQL | P01 | Martínez | Ingeniería |
+
+    **Dependencia transitiva identificada:**
+    ```
+    codcurso → cedprofesor → nombre_profesor, departamento_profesor
+    ```
+    `nombre_profesor` no depende directamente de `codcurso` (la PK), sino transitivamente a través de `cedprofesor`.
+
+    **Solución — extraer la información del profesor a su propia tabla:**
+
+    ```sql
+    -- Tabla de profesores: atributos propios del profesor
+    CREATE TABLE profesores (
+      cedprofesor        VARCHAR(15) NOT NULL,
+      nombre             VARCHAR(50) NOT NULL,
+      apellido           VARCHAR(50) NOT NULL,
+      departamento       VARCHAR(80),
+      titulo_academico   VARCHAR(50),
+      CONSTRAINT pk_profesores PRIMARY KEY (cedprofesor)
+    );
+
+    -- Tabla de cursos: solo referencia al profesor mediante FK
+    CREATE TABLE cursos (
+      codcurso     INTEGER      NOT NULL,
+      nombrecurso  VARCHAR(50)  NOT NULL,
+      cedprofesor  VARCHAR(15)  NOT NULL,
+      max_alumnos  INTEGER,
+      titulo       VARCHAR(80),
+      fecha_inicio DATE,
+      fecha_fin    DATE,
+      num_horas    NUMERIC(5,2),
+      CONSTRAINT pk_cursos PRIMARY KEY (codcurso),
+      CONSTRAINT fk_curso_prof FOREIGN KEY (cedprofesor)
+        REFERENCES profesores(cedprofesor)
+    );
+    ```
+
+    <Note>
+      La regla informal de la 3FN es: **"cada atributo no clave debe depender de la clave, solo de la clave y nada más que de la clave"** (paráfrasis del juramento anglosajón, popularizada por William Kent).
+    </Note>
+  </Step>
+
+  <Step title="Verificar BCNF (opcional pero recomendado)">
+    ### Forma Normal de Boyce-Codd (BCNF)
+
+    La **BCNF** es una versión más estricta de la 3FN. Una tabla está en BCNF si, para **toda** dependencia funcional no trivial `X → Y`, `X` es una **superclave** de la relación.
+
+    La diferencia con 3FN aparece en tablas con **múltiples claves candidatas solapadas**. En la práctica, la mayoría de los esquemas en 3FN ya están en BCNF; los casos que violan BCNF pero no 3FN son relativamente raros.
+
+    Consulta la sección de preguntas frecuentes al final de esta página para un ejemplo detallado de cuándo 3FN ≠ BCNF.
+
+    <Warning>
+      Forzar BCNF en todos los casos puede llevar a **pérdida de dependencias funcionales** (algunas restricciones del negocio ya no pueden expresarse con claves foráneas y requieren triggers o constraints adicionales). Evalúa caso a caso si el rigor de BCNF justifica esa complejidad.
+    </Warning>
+  </Step>
+</Steps>
+
+---
+
+## Esquema final normalizado (3FN)
+
+El siguiente DDL representa el esquema del curso completamente normalizado hasta 3FN:
+
+```sql
+-- =============================================
+-- Esquema universitario normalizado hasta 3FN
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS profesores (
+  cedprofesor      VARCHAR(15)  NOT NULL,
+  nombre           VARCHAR(50)  NOT NULL,
+  apellido         VARCHAR(50)  NOT NULL,
+  departamento     VARCHAR(80),
+  titulo_academico VARCHAR(50),
+  CONSTRAINT pk_profesores PRIMARY KEY (cedprofesor)
+);
+
+CREATE TABLE IF NOT EXISTS alumnos (
+  cedula           VARCHAR(15)  NOT NULL,
+  nombre           VARCHAR(50)  NOT NULL,
+  apellido         VARCHAR(50)  NOT NULL,
+  direccion        VARCHAR(100),
+  sexo             VARCHAR(1),
+  fecha_nacimiento DATE,
+  CONSTRAINT pk_alumnos PRIMARY KEY (cedula)
+);
+
+CREATE TABLE IF NOT EXISTS cursos (
+  codcurso     INTEGER      NOT NULL,
+  nombrecurso  VARCHAR(50)  NOT NULL,
+  cedprofesor  VARCHAR(15)  NOT NULL,
+  max_alumnos  INTEGER,
+  titulo       VARCHAR(80),
+  fecha_inicio DATE,
+  fecha_fin    DATE,
+  num_horas    NUMERIC(5,2),
+  CONSTRAINT pk_cursos         PRIMARY KEY (codcurso),
+  CONSTRAINT fk_curso_profesor FOREIGN KEY (cedprofesor)
+    REFERENCES profesores(cedprofesor)
+);
+
+CREATE TABLE IF NOT EXISTS alumno_curso (
+  cedula     VARCHAR(15)  NOT NULL,
+  codcurso   INTEGER      NOT NULL,
+  nota_final NUMERIC(3,1),
+  CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula, codcurso),
+  CONSTRAINT fk_ac_alumno    FOREIGN KEY (cedula)
+    REFERENCES alumnos(cedula),
+  CONSTRAINT fk_ac_curso     FOREIGN KEY (codcurso)
+    REFERENCES cursos(codcurso)
+);
+
+CREATE TABLE IF NOT EXISTS alumno_telefonos (
+  cedula   VARCHAR(15) NOT NULL,
+  telefono VARCHAR(15) NOT NULL,
+  CONSTRAINT pk_alumno_telefonos PRIMARY KEY (cedula, telefono),
+  CONSTRAINT fk_at_alumno        FOREIGN KEY (cedula)
+    REFERENCES alumnos(cedula) ON DELETE CASCADE
+);
+```
+
+---
+
+## Resumen de las formas normales
+
+| Forma Normal | Requisito principal | Problema que elimina |
+|---|---|---|
+| **1FN** | Valores atómicos, sin grupos repetitivos | Celdas con múltiples valores, columnas repetidas |
+| **2FN** | Sin dependencias parciales de la PK | Redundancia en tablas con PK compuesta |
+| **3FN** | Sin dependencias transitivas | Redundancia por cadenas de dependencia |
+| **BCNF** | Todo determinante es superclave | Anomalías residuales con claves candidatas solapadas |
+
+<Warning>
+  **El peligro de la sobre-normalización:** llevar un esquema a 4FN o 5FN puede resultar en decenas de tablas con joins costosos para consultas simples. En sistemas OLAP (analítica) y data warehouses se utilizan intencionalmente esquemas **desnormalizados** (estrella, copo de nieve) para mejorar el rendimiento de lectura. La normalización es una guía de diseño, no un dogma absoluto.
+</Warning>
+
+---
+
+## Preguntas frecuentes sobre normalización
+
+<AccordionGroup>
+  <Accordion title="¿Cuándo BCNF es diferente de 3FN? Ejemplo concreto">
+    Imagina una tabla para asignar tutores a alumnos en cursos, donde:
+    - Cada alumno en un curso tiene exactamente un tutor.
+    - Cada tutor solo imparte un curso (pero un curso puede tener varios tutores).
+
+    ```
+    TUTORIA(cedula_alumno, codcurso, cedula_tutor)
+    ```
+
+    **Claves candidatas:**
+    - `{cedula_alumno, codcurso}` — un alumno en un curso tiene un tutor.
+    - `{cedula_alumno, cedula_tutor}` — un alumno con un tutor determina el curso.
+
+    **Dependencia funcional:**
+    ```
+    cedula_tutor → codcurso
+    ```
+
+    Esta dependencia **no viola 3FN** porque `cedula_tutor` forma parte de una clave candidata. Pero **sí viola BCNF** porque `cedula_tutor` por sí sola no es superclave de la relación.
+
+    La solución BCNF descompone la tabla, pero puede impedir expresar directamente la restricción de que el alumno y el tutor deben pertenecer al mismo curso, lo que requeriría un trigger adicional. Por eso a veces se prefiere mantener 3FN en estos casos.
+  </Accordion>
+
+  <Accordion title="¿La normalización afecta el rendimiento de las consultas?">
+    Sí, hay un trade-off. Más tablas significan más `JOIN` en las consultas, lo que puede ser más lento si las tablas son muy grandes y los índices no están bien definidos. Sin embargo:
+
+    1. Los **índices** en las claves foráneas mitigan en gran medida este costo.
+    2. Las bases de datos normalizadas son más rápidas en **escritura** (menos filas que actualizar por cambio).
+    3. Para cargas de trabajo de **lectura intensiva** (reportería, BI), considera vistas materializadas o esquemas estrella en una capa separada de analítica.
+
+    La recomendación estándar es: **diseña normalizado, desnormaliza solo donde los perfiles de rendimiento lo justifiquen con evidencia**.
+  </Accordion>
+
+  <Accordion title="¿Cómo identifico dependencias funcionales en la práctica?">
+    Sigue estos pasos:
+
+    1. **Entrevista al negocio:** pregunta "¿puede haber dos registros con el mismo valor de X pero diferente valor de Y?". Si la respuesta es no, tienes `X → Y`.
+    2. **Analiza las reglas de negocio documentadas**, no solo los datos de muestra.
+    3. **Busca atributos descriptivos de otra entidad:** si una tabla tiene `nombre_ciudad` junto a `codigo_postal`, sospecha de `codigo_postal → nombre_ciudad`.
+    4. **Usa el diagrama E-R como guía:** los atributos de cada entidad deben depender funcionalmente de la clave de esa entidad.
+  </Accordion>
+
+  <Accordion title="¿Qué pasa con las formas normales superiores (4FN, 5FN)?">
+    - **4FN** elimina **dependencias multivaluadas**: cuando una tabla registra combinaciones independientes de dos atributos respecto a una clave (p. ej., un profesor puede enseñar varios cursos Y hablar varios idiomas, de forma independiente entre sí).
+    - **5FN (forma normal de proyección-unión)** maneja casos aún más raros de dependencias de join cíclicas.
+
+    En la práctica, la gran mayoría de los diseños empresariales se detienen en 3FN o BCNF. Las formas superiores son relevantes principalmente en contextos académicos o en esquemas muy específicos.
+  </Accordion>
+</AccordionGroup>

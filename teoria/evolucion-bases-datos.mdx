@@ -1,0 +1,161 @@
+---
+title: "Evolución histórica de los sistemas de bases de datos"
+sidebarTitle: "Evolución BD"
+description: "Recorrido por la evolución de los sistemas de bases de datos: desde archivos planos hasta bases de datos relacionales, NoSQL y vectoriales."
+---
+
+Comprender la historia de los sistemas de bases de datos no es un ejercicio meramente académico: cada era dejó lecciones concretas sobre cómo organizar, recuperar y proteger la información. Los problemas que motivaron cada salto tecnológico —redundancia, acoplamiento físico, falta de independencia de datos— siguen siendo los mismos criterios con los que hoy evaluamos una arquitectura. Conocer este recorrido te permitirá tomar decisiones de diseño fundamentadas y entender por qué el modelo relacional, después de más de cincuenta años, continúa siendo el estándar de facto en la industria.
+
+## Línea del tiempo: las grandes eras
+
+<Steps>
+  <Step title="Archivos planos — décadas de 1950 y 1960">
+    Los primeros sistemas de cómputo almacenaban datos en **archivos secuenciales** grabados en cintas magnéticas. Cada aplicación definía su propio formato de archivo y era responsable de leerlo y escribirlo directamente.
+
+    **Problemas principales:**
+    - Redundancia masiva: el mismo dato se repetía en decenas de archivos.
+    - Dependencia física: cambiar el formato del archivo implicaba reescribir todos los programas que lo usaban.
+    - Sin control de concurrencia ni integridad.
+
+    <Note>
+      El término "archivo plano" (flat file) sigue usándose hoy para formatos como CSV o TSV, que comparten las mismas limitaciones estructurales de aquella época.
+    </Note>
+  </Step>
+
+  <Step title="Modelo jerárquico — décadas de 1960 y 1970">
+    IBM desarrolló el **Information Management System (IMS)** en 1966 para gestionar los datos del programa Apollo de la NASA. Los datos se organizaban en árboles: un registro padre podía tener múltiples registros hijos, pero cada hijo solo podía tener un padre.
+
+    **Ventajas sobre archivos planos:**
+    - Estructura predefinida y navegación eficiente por rutas conocidas.
+    - Primer concepto de esquema separado del programa.
+
+    **Limitaciones:**
+    - Las relaciones M:N eran difíciles o imposibles de representar sin duplicar datos.
+    - La navegación era rígida: solo se podía recorrer el árbol de arriba hacia abajo.
+  </Step>
+
+  <Step title="Modelo de red (CODASYL) — década de 1970">
+    El comité **CODASYL** (Conference on Data Systems Languages) propuso un modelo de red donde los registros podían relacionarse libremente mediante punteros, superando la restricción del árbol jerárquico.
+
+    **Aportaciones clave:**
+    - Relaciones M:N nativas mediante conjuntos (sets).
+    - Separación formal entre esquema lógico y almacenamiento físico.
+
+    **Limitaciones:**
+    - La navegación seguía siendo procedural: el programador debía recorrer los punteros manualmente.
+    - Alta complejidad de implementación y mantenimiento.
+  </Step>
+
+  <Step title="Modelo relacional — 1970 en adelante">
+    En 1970, **Edgar F. Codd** publicó el artículo *"A Relational Model of Data for Large Shared Data Banks"* en las Communications of the ACM, sentando las bases matemáticas del modelo relacional. Los datos se representan como **tablas (relaciones)**, y se manipulan con **álgebra relacional** (selección, proyección, unión, diferencia, producto cartesiano, join).
+
+    **Hitos fundamentales:**
+    - 1974: IBM desarrolla **System R**, el primer prototipo de RDBMS.
+    - 1979: Oracle lanza el primer RDBMS comercial.
+    - 1986: ANSI estandariza **SQL** como lenguaje de consulta.
+    - 1987-presente: PostgreSQL, MySQL, SQL Server, DB2 dominan el mercado empresarial.
+
+    <Note>
+      Las 12 reglas de Codd (publicadas en 1985) definen qué significa que un sistema sea "verdaderamente relacional". La mayoría de los RDBMS modernos cumplen la mayor parte de ellas.
+    </Note>
+  </Step>
+
+  <Step title="Bases de datos orientadas a objetos — décadas de 1980 y 1990">
+    El auge de la programación orientada a objetos impulsó sistemas como **ObjectStore** y **Objectivity/DB**, donde los datos se almacenaban directamente como objetos con herencia y métodos. El estándar **ODMG** intentó unificar el ecosistema.
+
+    **Resultado:** limitada adopción comercial. La solución intermedia —el modelo **objeto-relacional** (PostgreSQL, Oracle)— resultó más pragmática y sigue vigente hoy.
+  </Step>
+
+  <Step title="NoSQL — década de 2000">
+    La explosión de la web a escala masiva (Google, Amazon, Facebook) generó requisitos que los RDBMS tradicionales no podían satisfacer fácilmente: escrituras distribuidas a millones de nodos, esquemas flexibles y escalado horizontal.
+
+    **Principales familias NoSQL:**
+
+    | Tipo | Ejemplos | Caso de uso típico |
+    |------|----------|--------------------|
+    | Documentos | MongoDB, CouchDB | Catálogos, perfiles de usuario |
+    | Clave-valor | Redis, DynamoDB | Caché, sesiones |
+    | Columnar | Cassandra, HBase | Series temporales, analítica |
+    | Grafos | Neo4j, ArangoDB | Redes sociales, recomendaciones |
+
+    <Note>
+      El término "NoSQL" fue acuñado en 2009 y se reinterpreta frecuentemente como "Not Only SQL", reconociendo que estos sistemas conviven con los relacionales.
+    </Note>
+  </Step>
+
+  <Step title="NewSQL — década de 2010">
+    Los sistemas **NewSQL** buscan combinar la escalabilidad horizontal de NoSQL con las garantías ACID del modelo relacional. Ejemplos: **Google Spanner**, **CockroachDB**, **TiDB**, **YugabyteDB**.
+
+    Son especialmente relevantes para aplicaciones financieras y de e-commerce que requieren consistencia fuerte a escala global.
+  </Step>
+
+  <Step title="Bases de datos vectoriales — década de 2020">
+    El auge de los modelos de inteligencia artificial generativa (embeddings, LLMs) impulsó una nueva categoría: las **bases de datos vectoriales**, optimizadas para búsqueda por similitud semántica.
+
+    **Ejemplos destacados:**
+    - **pgvector**: extensión de PostgreSQL para almacenar y consultar vectores.
+    - **Pinecone**: servicio gestionado en la nube.
+    - **Weaviate** y **Qdrant**: soluciones open-source.
+
+    <Note>
+      pgvector permite implementar búsqueda semántica directamente en PostgreSQL con el operador `<->` (distancia L2) sin abandonar el ecosistema relacional.
+    </Note>
+  </Step>
+</Steps>
+
+---
+
+## ¿Por qué el modelo relacional sigue dominando?
+
+A pesar de décadas de competencia, los RDBMS mantienen una posición central en la infraestructura de datos mundial. Estas son las razones principales:
+
+<CardGroup cols={2}>
+  <Card title="Bases de datos relacionales" icon="table">
+    **Fortalezas:**
+    - Garantías **ACID** (Atomicidad, Consistencia, Aislamiento, Durabilidad) probadas en producción durante décadas.
+    - **SQL** como lenguaje estándar universal: un desarrollador puede trabajar con PostgreSQL, MySQL u Oracle con mínima fricción.
+    - Madurez del ecosistema: herramientas de monitoreo, backup, replicación y migración ampliamente disponibles.
+    - **Integridad referencial** declarativa mediante claves foráneas.
+    - Optimizadores de consultas sofisticados con décadas de investigación aplicada.
+
+    **Casos de uso ideales:**
+    Sistemas transaccionales (ERP, bancos, salud), aplicaciones con esquema bien definido, reportería y analítica estructurada.
+  </Card>
+  <Card title="Bases de datos NoSQL" icon="database">
+    **Fortalezas:**
+    - Escalado horizontal nativo (sharding automático).
+    - Esquemas flexibles o sin esquema (schema-less) para datos cambiantes.
+    - Alto rendimiento de escritura en cargas masivas distribuidas.
+    - Modelos de datos especializados (documentos, grafos, series temporales).
+
+    **Casos de uso ideales:**
+    Redes sociales a escala, IoT, catálogos de productos con atributos variables, caché de alta velocidad, datos semiestructurados o no estructurados.
+  </Card>
+</CardGroup>
+
+<Note>
+  En la práctica moderna, la mayoría de las arquitecturas empresariales combinan ambos paradigmas: un RDBMS como PostgreSQL para los datos transaccionales críticos, y una solución NoSQL o vectorial para casos de uso específicos. A esto se le llama **persistencia políglota**.
+</Note>
+
+---
+
+## Línea del tiempo resumida
+
+| Década | Paradigma | Representantes |
+|--------|-----------|----------------|
+| 1950-60 | Archivos planos | VSAM, archivos secuenciales |
+| 1960-70 | Jerárquico | IBM IMS |
+| 1970 | Red (CODASYL) | IDS, IDMS |
+| 1970-presente | **Relacional** | Oracle, PostgreSQL, MySQL, SQL Server |
+| 1980-90 | Orientado a objetos | ObjectStore, Objectivity/DB |
+| 2000-presente | NoSQL | MongoDB, Cassandra, Redis |
+| 2010-presente | NewSQL | Spanner, CockroachDB, TiDB |
+| 2020-presente | Vectorial | pgvector, Pinecone, Weaviate |
+
+---
+
+## Lecturas recomendadas
+
+- Codd, E. F. (1970). *A Relational Model of Data for Large Shared Data Banks*. Communications of the ACM, 13(6), 377–387.
+- Stonebraker, M. & Hellerstein, J. (2005). *What Goes Around Comes Around*. Readings in Database Systems, 4th ed.
+- DeCandia, G. et al. (2007). *Dynamo: Amazon's Highly Available Key-Value Store*. SOSP '07.

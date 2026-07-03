@@ -1,0 +1,262 @@
+---
+title: "Taller 4: Sentencias DML en Supabase — INSERT, UPDATE, DELETE"
+sidebarTitle: "Taller 4 – DML"
+description: "Practica sentencias DML de PostgreSQL en Supabase: INSERT, UPDATE y DELETE con transacciones, cláusulas WHERE y patrones seguros de modificación de datos."
+---
+
+Las sentencias DML (Data Manipulation Language) son las herramientas del día a día en una base de datos relacional: permiten insertar nuevos registros, modificar los existentes y eliminar los que ya no se necesitan. La clave para usarlas de forma segura es la cláusula `WHERE`: sin ella, un `UPDATE` o un `DELETE` afectará **todas** las filas de la tabla sin distinción. En este taller practicarás cada operación DML sobre una tabla de enlaces, entenderás cómo funcionan las transacciones y aprenderás patrones seguros de modificación de datos en PostgreSQL.
+
+## Tabla de práctica: `enlaces`
+
+Todos los ejercicios de este taller operan sobre la siguiente tabla. Créala en tu proyecto de Supabase antes de continuar:
+
+```sql
+CREATE TABLE enlaces (
+  id INTEGER PRIMARY KEY,
+  url VARCHAR(80) NOT NULL,
+  notas VARCHAR(1024),
+  cuenta INTEGER,
+  creado TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+La columna `creado` usa `DEFAULT NOW()`, lo que significa que si no se provee un valor al insertar, PostgreSQL registrará automáticamente la fecha y hora actuales con zona horaria.
+
+## Operaciones DML
+
+<Tabs>
+  <Tab title="INSERT">
+    ### Insertar filas
+
+    La sentencia `INSERT INTO` agrega una o más filas a una tabla. Existen tres patrones principales:
+
+    **Forma posicional (no recomendada):** los valores se listan en el mismo orden que las columnas de la tabla. Es frágil porque si la estructura de la tabla cambia, el script puede fallar silenciosamente o insertar datos en columnas incorrectas.
+
+    ```sql
+    -- Insertar una fila completa
+    INSERT INTO enlaces
+    VALUES (101, 'http://dev.fyicenter.com', NULL, 0, '2009-04-30');
+    ```
+
+    **Forma explícita (recomendada):** se listan las columnas objetivo antes de los valores. Es más legible, resistente a cambios de esquema y permite omitir columnas con valores por defecto.
+
+    ```sql
+    -- Forma recomendada: listar columnas explícitamente
+    INSERT INTO enlaces (id, url, notas, cuenta)
+    VALUES (102, 'http://dba.fyicenter.com', NULL, 0);
+    ```
+
+    **Inserción múltiple:** puedes insertar varias filas en una sola instrucción separando cada conjunto de valores con comas. Es más eficiente que ejecutar un `INSERT` por cada fila.
+
+    ```sql
+    -- Múltiples filas
+    INSERT INTO enlaces (id, url, notas, cuenta, creado)
+    VALUES
+      (201, 'http://sitio-a.com', 'Primer sitio', 10, NOW()),
+      (202, 'http://sitio-b.com', 'Segundo sitio', 20, NOW()),
+      (203, 'http://sitio-c.com', NULL, 0, NOW());
+    ```
+
+    Verifica los datos insertados:
+
+    ```sql
+    SELECT * FROM enlaces ORDER BY id;
+    ```
+
+    <Tip>
+      Usa `INSERT INTO ... ON CONFLICT DO NOTHING` o `ON CONFLICT (...) DO UPDATE` (también conocido como "upsert") cuando quieras insertar sin error si la clave ya existe. Es útil en scripts de carga de datos repetibles.
+    </Tip>
+  </Tab>
+
+  <Tab title="UPDATE">
+    ### Actualizar filas
+
+    La sentencia `UPDATE` modifica los valores de columnas en filas existentes. La cláusula `WHERE` determina qué filas se ven afectadas.
+
+    **Actualizar múltiples columnas a la vez:** en un solo `UPDATE` puedes modificar tantas columnas como necesites, separándolas con comas en el `SET`.
+
+    ```sql
+    -- Actualizar múltiples columnas
+    UPDATE enlaces
+    SET cuenta = 999, notas = 'Buen sitio.'
+    WHERE id = 101;
+    ```
+
+    **Actualizar usando los valores actuales de la fila:** puedes referenciar el valor actual de una columna dentro de la expresión de actualización. Esto es útil para incrementos, decrementos o concatenaciones.
+
+    ```sql
+    -- Actualizar usando valores actuales
+    UPDATE enlaces
+    SET id = id + 1000, cuenta = cuenta * 2
+    WHERE id >= 250;
+    ```
+
+    **Verificar el resultado:**
+
+    ```sql
+    SELECT id, url, cuenta, notas FROM enlaces WHERE id = 101;
+    ```
+
+    <Warning>
+      Un `UPDATE` **sin cláusula `WHERE`** modifica **todas** las filas de la tabla. Siempre verifica tu condición `WHERE` antes de ejecutar. En entornos de producción, considera ejecutar primero un `SELECT` con el mismo `WHERE` para confirmar qué filas serán afectadas.
+    </Warning>
+
+    **Patrón seguro:** antes de actualizar, ejecuta el `SELECT` equivalente:
+
+    ```sql
+    -- Primero verifica qué filas serán afectadas
+    SELECT id, cuenta FROM enlaces WHERE id >= 250;
+
+    -- Luego ejecuta el UPDATE con confianza
+    UPDATE enlaces
+    SET cuenta = cuenta * 2
+    WHERE id >= 250;
+    ```
+  </Tab>
+
+  <Tab title="DELETE">
+    ### Eliminar filas
+
+    La sentencia `DELETE FROM` elimina filas que cumplan la condición `WHERE`. A diferencia de `TRUNCATE`, `DELETE` es una operación transaccional que puede revertirse con `ROLLBACK`.
+
+    **Eliminar una fila específica:**
+
+    ```sql
+    -- Eliminar fila específica
+    DELETE FROM enlaces WHERE id = 301;
+    ```
+
+    **Eliminar por rango:**
+
+    ```sql
+    -- Eliminar por rango
+    DELETE FROM enlaces WHERE id >= 250;
+    ```
+
+    **Eliminar por fecha:**
+
+    ```sql
+    -- Eliminar por fecha
+    DELETE FROM enlaces WHERE creado < '2020-01-01';
+    ```
+
+    **Verificar cuántas filas quedan después de eliminar:**
+
+    ```sql
+    SELECT COUNT(*) FROM enlaces;
+    ```
+
+    <Warning>
+      Ejecutar `DELETE FROM enlaces;` **sin `WHERE`** eliminará absolutamente todas las filas de la tabla. PostgreSQL no pedirá confirmación. Siempre incluye una cláusula `WHERE` o, si realmente deseas vaciar la tabla, usa `TRUNCATE` (ver pestaña siguiente).
+    </Warning>
+  </Tab>
+
+  <Tab title="TRUNCATE">
+    ### Vaciar una tabla con TRUNCATE
+
+    `TRUNCATE TABLE` elimina todas las filas de una tabla de forma inmediata y mucho más eficiente que un `DELETE` sin `WHERE`.
+
+    ```sql
+    -- TRUNCATE (más eficiente que DELETE sin WHERE)
+    TRUNCATE TABLE enlaces;
+    ```
+
+    <Tip>
+      **`TRUNCATE` vs `DELETE` sin `WHERE`:**
+
+      | Característica | `DELETE` sin `WHERE` | `TRUNCATE` |
+      |---|---|---|
+      | Velocidad | Lenta (fila por fila) | Muy rápida (reset de página) |
+      | Transaccional | Sí, puede revertirse | Sí en PostgreSQL (a diferencia de otros motores) |
+      | Dispara triggers | Sí | No (por defecto) |
+      | Reinicia secuencias | No | Sí con `RESTART IDENTITY` |
+      | Resetea contadores | No | Sí |
+
+      Usa `TRUNCATE` cuando necesites vaciar una tabla completamente en entornos de prueba o carga masiva. Usa `DELETE` cuando necesites eliminar un subconjunto de filas o requerir que se ejecuten triggers.
+    </Tip>
+
+    **Opciones avanzadas de TRUNCATE:**
+
+    ```sql
+    -- Vaciar tabla y reiniciar secuencias de autoincremento
+    TRUNCATE TABLE enlaces RESTART IDENTITY;
+
+    -- Vaciar tabla y todas las tablas que tengan FK hacia ella
+    TRUNCATE TABLE enlaces CASCADE;
+    ```
+  </Tab>
+
+  <Tab title="Transacciones">
+    ### Control de transacciones
+
+    Una transacción agrupa varias operaciones DML en una unidad atómica: o todas se confirman (`COMMIT`) o todas se revierten (`ROLLBACK`). Esto garantiza la consistencia de los datos ante errores parciales.
+
+    ```sql
+    BEGIN;
+
+    INSERT INTO enlaces (id, url, cuenta)
+    VALUES (301, 'http://nuevo-sitio.com', 0);
+
+    UPDATE enlaces
+    SET cuenta = cuenta + 1
+    WHERE id = 101;
+
+    COMMIT;
+    -- Si algo falla: ROLLBACK;
+    ```
+
+    **Flujo con manejo de error:**
+
+    ```sql
+    BEGIN;
+
+    -- Operación 1
+    INSERT INTO enlaces (id, url, cuenta)
+    VALUES (401, 'http://otro-sitio.com', 5);
+
+    -- Operación 2: si esta falla (ej. id duplicado), hacemos ROLLBACK
+    INSERT INTO enlaces (id, url, cuenta)
+    VALUES (401, 'http://duplicado.com', 0); -- id 401 ya existe → error
+
+    -- Si llegamos aquí sin error, confirmamos
+    COMMIT;
+
+    -- Si hubo error, revertimos todo:
+    -- ROLLBACK;
+    ```
+
+    ### Propiedades ACID
+
+    Las transacciones en PostgreSQL cumplen las propiedades ACID, que garantizan la fiabilidad de los datos:
+
+    <CardGroup cols={2}>
+      <Card title="Atomicidad" icon="atom">
+        Todas las operaciones de la transacción se completan o ninguna se aplica. No hay estados intermedios visibles.
+      </Card>
+      <Card title="Consistencia" icon="circle-check">
+        La base de datos pasa de un estado válido a otro estado válido. Las restricciones (PK, FK, CHECK) nunca se violan al finalizar.
+      </Card>
+      <Card title="Aislamiento" icon="shield">
+        Las transacciones concurrentes no se interfieren entre sí. Los cambios no confirmados de una transacción no son visibles para otras.
+      </Card>
+      <Card title="Durabilidad" icon="database">
+        Una vez confirmada (`COMMIT`), la transacción persiste incluso ante fallos del sistema (corte de luz, crash del servidor).
+      </Card>
+    </CardGroup>
+
+    <Note>
+      En el SQL Editor de Supabase, cada sentencia que ejecutas sin un `BEGIN` explícito se envuelve automáticamente en una transacción implícita. Si la sentencia falla, se revierte sola. Para agrupar varias operaciones, debes abrir explícitamente un bloque `BEGIN ... COMMIT`.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Guía de referencia rápida
+
+| Sentencia | Propósito | ¿Requiere `WHERE`? |
+|---|---|---|
+| `INSERT INTO` | Agregar nuevas filas | No aplica |
+| `UPDATE ... SET` | Modificar filas existentes | Recomendado siempre |
+| `DELETE FROM` | Eliminar filas específicas | Recomendado siempre |
+| `TRUNCATE TABLE` | Vaciar tabla completa | No aplica |
+| `BEGIN / COMMIT` | Iniciar / confirmar transacción | No aplica |
+| `ROLLBACK` | Revertir transacción en curso | No aplica |

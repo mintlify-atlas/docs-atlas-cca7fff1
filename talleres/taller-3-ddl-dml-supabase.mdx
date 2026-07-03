@@ -1,0 +1,220 @@
+---
+title: "Taller 3: DDL y DML en Supabase con PostgreSQL"
+sidebarTitle: "Taller 3 – DDL/DML"
+description: "Crea y manipula tablas en Supabase usando sentencias DDL (CREATE TABLE, ALTER TABLE) y DML (INSERT) de PostgreSQL con restricciones y claves foráneas."
+---
+
+En SQL, las instrucciones se agrupan en dos grandes categorías según su propósito. El **DDL (Data Definition Language)** se encarga de definir y modificar la estructura de la base de datos: crea tablas, las altera, las elimina. El **DML (Data Manipulation Language)**, en cambio, opera sobre los datos que viven dentro de esas estructuras: inserta filas, las actualiza o las elimina. En este taller usarás ambos lenguajes para construir desde cero el esquema universitario de ejemplo y poblar sus tablas con datos iniciales, todo desde el editor SQL de Supabase.
+
+## Esquema universitario
+
+El esquema de este taller representa un sistema académico simplificado compuesto por cuatro tablas relacionadas entre sí:
+
+| Tabla | Descripción |
+|---|---|
+| `profesores` | Datos personales y especialidad de cada docente |
+| `alumnos` | Datos personales de los estudiantes matriculados |
+| `cursos` | Catálogo de cursos con su profesor asignado y detalles |
+| `alumno_curso` | Tabla de unión que registra qué alumno está inscrito en qué curso |
+
+Las relaciones clave son: un curso pertenece a un profesor (`cursos → profesores`) y un alumno puede estar en muchos cursos mientras un curso tiene muchos alumnos (`alumno_curso` actúa como tabla puente).
+
+<Note>
+El orden de creación importa. Debes crear primero las tablas que son referenciadas por claves foráneas antes de crear las tablas que las referencian. En este caso: `profesores` y `alumnos` primero, luego `cursos`, y finalmente `alumno_curso`.
+</Note>
+
+## Restricciones utilizadas
+
+Antes de ejecutar el taller, familiarízate con las restricciones que aparecerán en los scripts:
+
+<CardGroup cols={2}>
+  <Card title="PRIMARY KEY" icon="key">
+    Identifica de forma única cada fila de la tabla. Combina `NOT NULL` + `UNIQUE`. Puede ser simple (una columna) o compuesta (varias columnas).
+  </Card>
+  <Card title="FOREIGN KEY" icon="link">
+    Garantiza integridad referencial entre tablas. El valor de la columna debe existir en la tabla padre o ser `NULL`.
+  </Card>
+  <Card title="CHECK" icon="shield-check">
+    Valida que los valores de una columna cumplan una expresión lógica. Si la condición es falsa, PostgreSQL rechaza la operación.
+  </Card>
+  <Card title="NOT NULL" icon="circle-exclamation">
+    Prohíbe que una columna almacene valores nulos. Se puede definir en la declaración de la columna o con `ALTER TABLE`.
+  </Card>
+</CardGroup>
+
+## Pasos del taller
+
+<Steps>
+  ### Conectarte a Supabase y abrir el SQL Editor
+
+  1. Ingresa a [supabase.com](https://supabase.com) y abre tu proyecto.
+  2. En el panel izquierdo, haz clic en **SQL Editor**.
+  3. Crea un nuevo script haciendo clic en **New query**.
+  4. Ejecutarás cada bloque SQL en orden, usando el botón **Run** (o `Ctrl + Enter`).
+
+  <Tip>
+    Puedes pegar cada bloque por separado o concatenarlos todos en un único script. Si los concatenas, asegúrate de respetar el orden de dependencias entre tablas.
+  </Tip>
+
+  ### Crear la tabla `profesores`
+
+  Esta tabla no depende de ninguna otra, por lo que se crea primero. La clave primaria se agrega con `ALTER TABLE` para demostrar que las restricciones pueden añadirse después de la creación de la tabla.
+
+  <Tip>
+    Usar `CREATE TABLE IF NOT EXISTS` hace que el script sea **idempotente**: puedes ejecutarlo varias veces sin que falle si la tabla ya existe. Es una buena práctica para scripts de inicialización.
+  </Tip>
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS profesores (
+    cedula VARCHAR(15) NOT NULL,
+    nombre VARCHAR(50) NOT NULL,
+    apellido VARCHAR(50) NOT NULL,
+    especialidad VARCHAR(80)
+  );
+  ALTER TABLE profesores
+  ADD CONSTRAINT pk_profesor PRIMARY KEY (cedula);
+
+  INSERT INTO profesores (cedula, nombre, apellido, especialidad)
+  VALUES
+    ('12345678', 'Carlos', 'Rodríguez', 'Bases de Datos'),
+    ('23456789', 'Luisa', 'Martínez', 'Desarrollo Web'),
+    ('34567890', 'Andrés', 'García', 'Redes');
+  ```
+
+  Verifica los datos insertados con:
+
+  ```sql
+  SELECT * FROM profesores;
+  ```
+
+  ### Crear la tabla `alumnos`
+
+  La tabla de alumnos incorpora una restricción `CHECK` sobre la columna `sexo` para garantizar que solo se acepten los valores `'H'` (hombre) o `'M'` (mujer). Cualquier otro valor será rechazado por PostgreSQL.
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS alumnos (
+    cedula VARCHAR(15) NOT NULL,
+    nombre VARCHAR(50) NOT NULL,
+    apellido VARCHAR(50) NOT NULL,
+    direccion VARCHAR(100),
+    sexo VARCHAR(1),
+    fecha_nacimiento date
+  );
+  ALTER TABLE alumnos
+  ADD CONSTRAINT pk_alumno PRIMARY KEY (cedula);
+  ALTER TABLE alumnos
+  ADD CONSTRAINT ck_sexo CHECK (sexo IN ('H', 'M'));
+
+  INSERT INTO alumnos (cedula, nombre, apellido, direccion, sexo, fecha_nacimiento)
+  VALUES
+    ('10000001', 'Ana', 'Soto', 'Calle 1 #2-3', 'M', '2005-03-15'),
+    ('10000002', 'Pedro', 'Duran', 'Carrera 4 #5-6', 'H', '2004-10-20'),
+    ('10000003', 'Carla', 'Mendoza', 'Avenida 7 #8-9', 'M', '2006-01-12');
+  ```
+
+  Prueba que la restricción funciona intentando insertar un valor inválido:
+
+  ```sql
+  -- Esto debe fallar con: ERROR: new row for relation "alumnos" violates check constraint "ck_sexo"
+  INSERT INTO alumnos (cedula, nombre, apellido, sexo)
+  VALUES ('99999999', 'Test', 'Error', 'X');
+  ```
+
+  ### Crear la tabla `cursos`
+
+  La tabla `cursos` es la más rica en restricciones: tiene clave primaria, una clave foránea hacia `profesores`, dos restricciones `CHECK` y una columna que se modifica a `NOT NULL` después de la creación.
+
+  <Warning>
+    La restricción `ck_minimo_num_horas` usa la condición `num_horas > 100`, lo que significa que un curso debe tener **más de 100 horas**, no 100 exactas. Observa que el primer curso de ejemplo tiene `100.1` horas para cumplir este requisito. Un valor de exactamente `100` sería rechazado.
+  </Warning>
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS cursos (
+    codcurso INTEGER NOT NULL,
+    nombrecurso VARCHAR(50) NOT NULL,
+    cedprofesor VARCHAR(15) NOT NULL,
+    max_alumnos INTEGER,
+    titulo VARCHAR(80),
+    fecha_inicio date,
+    fecha_fin date,
+    num_horas NUMERIC(5, 2)
+  );
+  ALTER TABLE cursos ADD CONSTRAINT pk_curso PRIMARY KEY (codcurso);
+  ALTER TABLE cursos ADD CONSTRAINT fk_profesor_curso FOREIGN KEY (cedprofesor) REFERENCES profesores (cedula);
+  ALTER TABLE cursos ADD CONSTRAINT ck_minimo_alumnos_requeridos CHECK (max_alumnos >= 10);
+  ALTER TABLE cursos ADD CONSTRAINT ck_minimo_num_horas CHECK (num_horas > 100);
+  ALTER TABLE cursos ALTER COLUMN fecha_inicio SET NOT NULL;
+
+  INSERT INTO cursos (codcurso, nombrecurso, cedprofesor, max_alumnos, titulo, fecha_inicio, fecha_fin, num_horas)
+  VALUES
+    (101, 'Base de Datos I', '12345678', 30, 'Certificación SQL Essentials', '2026-03-01', '2026-06-01', 100.1),
+    (102, 'Programacion Web', '23456789', 25, 'Desarrollo Fullstack Junior', '2026-04-15', '2026-07-15', 150),
+    (103, 'Redes de Datos', '34567890', 20, 'Admin de Redes Cisco', '2026-05-10', '2026-08-10', 105);
+  ```
+
+  Verifica la integridad referencial intentando asignar una cédula de profesor inexistente:
+
+  ```sql
+  -- Esto debe fallar con: ERROR: insert or update on table "cursos" violates foreign key constraint
+  INSERT INTO cursos (codcurso, nombrecurso, cedprofesor, max_alumnos, fecha_inicio, num_horas)
+  VALUES (999, 'Curso Fantasma', '00000000', 15, '2026-01-01', 120);
+  ```
+
+  ### Crear la tabla `alumno_curso`
+
+  Esta tabla de unión (junction table) implementa la relación muchos-a-muchos entre alumnos y cursos. Su clave primaria es **compuesta** por las dos columnas foráneas, garantizando que un alumno no pueda inscribirse dos veces en el mismo curso.
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS alumno_curso (
+    cedula_alumno VARCHAR(15) NOT NULL,
+    codcurso INTEGER NOT NULL,
+    CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula_alumno, codcurso),
+    CONSTRAINT fk_alumno FOREIGN KEY (cedula_alumno) REFERENCES alumnos (cedula),
+    CONSTRAINT fk_curso FOREIGN KEY (codcurso) REFERENCES cursos (codcurso)
+  );
+  ```
+
+  ### Insertar datos en `alumno_curso`
+
+  Con todas las tablas creadas y los datos de profesores, alumnos y cursos ya insertados, puedes registrar las inscripciones:
+
+  ```sql
+  INSERT INTO alumno_curso (cedula_alumno, codcurso)
+  VALUES
+    ('10000001', 101),
+    ('10000001', 102),
+    ('10000002', 101),
+    ('10000002', 103),
+    ('10000003', 102),
+    ('10000003', 103);
+  ```
+
+  Consulta la inscripción completa con un `JOIN`:
+
+  ```sql
+  SELECT
+    a.nombre || ' ' || a.apellido AS alumno,
+    c.nombrecurso,
+    p.nombre || ' ' || p.apellido AS profesor
+  FROM alumno_curso ac
+  JOIN alumnos a ON ac.cedula_alumno = a.cedula
+  JOIN cursos c ON ac.codcurso = c.codcurso
+  JOIN profesores p ON c.cedprofesor = p.cedula
+  ORDER BY alumno, c.nombrecurso;
+  ```
+</Steps>
+
+## Resumen de restricciones aplicadas
+
+| Tabla | Restricción | Tipo | Descripción |
+|---|---|---|---|
+| `profesores` | `pk_profesor` | PRIMARY KEY | `cedula` identifica a cada profesor |
+| `alumnos` | `pk_alumno` | PRIMARY KEY | `cedula` identifica a cada alumno |
+| `alumnos` | `ck_sexo` | CHECK | Solo acepta `'H'` o `'M'` |
+| `cursos` | `pk_curso` | PRIMARY KEY | `codcurso` identifica cada curso |
+| `cursos` | `fk_profesor_curso` | FOREIGN KEY | `cedprofesor` debe existir en `profesores` |
+| `cursos` | `ck_minimo_alumnos_requeridos` | CHECK | `max_alumnos >= 10` |
+| `cursos` | `ck_minimo_num_horas` | CHECK | `num_horas > 100` |
+| `alumno_curso` | `pk_alumno_curso` | PRIMARY KEY compuesta | Par `(cedula_alumno, codcurso)` único |
+| `alumno_curso` | `fk_alumno` | FOREIGN KEY | `cedula_alumno` debe existir en `alumnos` |
+| `alumno_curso` | `fk_curso` | FOREIGN KEY | `codcurso` debe existir en `cursos` |

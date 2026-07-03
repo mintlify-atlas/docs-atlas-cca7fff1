@@ -1,0 +1,107 @@
+---
+title: "Bases de Datos Relacionales 2026-I: Guía completa del curso"
+sidebarTitle: "Introducción"
+description: "Explora el programa completo del curso de Bases de Datos Relacionales 2026-I: talleres, teoría, herramientas y recursos de SQL, EER y pgvector."
+---
+
+Las bases de datos relacionales constituyen el fundamento tecnológico de la mayoría de los sistemas de información modernos. Desde aplicaciones bancarias y sistemas de salud hasta plataformas de comercio electrónico, el modelo relacional —introducido por Edgar F. Codd en 1970— sigue siendo el paradigma dominante para organizar, consultar y mantener datos estructurados. En **Bases de Datos Relacionales 2026-I** aprenderás a diseñar esquemas robustos con el modelo Entidad-Relación Extendido (EER), a implementarlos en PostgreSQL mediante Supabase, a razonar formalmente sobre datos con álgebra relacional y a explorar las capacidades modernas de búsqueda vectorial con pgvector. El curso combina teoría rigurosa con talleres prácticos, proyectos de referencia sobre dominios reales y el uso de herramientas profesionales del sector.
+
+## Estructura del curso
+
+El programa está organizado en tres grandes ejes: **teoría**, **talleres prácticos** y **proyectos de referencia**. Cada eje se retroalimenta con los demás: la teoría justifica las decisiones de diseño, los talleres consolidan las habilidades técnicas y los proyectos demuestran la aplicación integral de los conceptos en contextos reales.
+
+<CardGroup cols={2}>
+  <Card title="Teoría" icon="book-open">
+    Evolución histórica de los sistemas de gestión de bases de datos, modelo Entidad-Relación y EER, dependencias funcionales, formas normales (1FN–FNBC) y fundamentos del modelo relacional.
+  </Card>
+  <Card title="Talleres SQL" icon="database">
+    DDL y DML con PostgreSQL en Supabase: creación de tablas, restricciones (`PRIMARY KEY`, `FOREIGN KEY`, `CHECK`), consultas `SELECT`, subconsultas, vistas y transacciones.
+  </Card>
+  <Card title="Álgebra Relacional" icon="sigma">
+    Ejercicios con los operadores formales: selección (σ), proyección (π), reunión natural (⨝), renombramiento (ρ), unión (∪), intersección (∩), diferencia (−) y división (÷), usando la herramienta RelaX.
+  </Card>
+  <Card title="Bases de datos vectoriales" icon="microchip">
+    Introducción a pgvector con Neon en Google Colab: representación de datos como vectores de alta dimensión, índices HNSW e IVFFlat, y búsqueda por similitud de coseno para aplicaciones de IA.
+  </Card>
+</CardGroup>
+
+### Teoría: fundamentos del modelo relacional
+
+El bloque teórico recorre la evolución de los sistemas de bases de datos desde los modelos jerárquico y de red hasta el modelo relacional y los sistemas NewSQL. Se estudia en detalle el modelo **Entidad-Relación Extendido (EER)**: entidades, atributos (simples, compuestos, multivaluados, derivados), relaciones, cardinalidades, participación total y parcial, especialización, generalización y herencia de atributos. La normalización abarca desde la primera forma normal (1FN) hasta la Forma Normal de Boyce-Codd (FNBC), con énfasis en la identificación y eliminación de anomalías de inserción, actualización y borrado.
+
+### Talleres: práctica con herramientas reales
+
+Los talleres están diseñados para trasladar la teoría al código SQL ejecutable en un entorno de producción real (Supabase/PostgreSQL). Cada taller incluye enunciado, archivos `.sql` listos para ejecutar y una guía de resolución paso a paso.
+
+| Taller | Tema principal |
+|--------|---------------|
+| Taller 1 | Modelado EER con draw.io |
+| Taller 2 | Álgebra relacional con RelaX |
+| Taller 3 | DDL/DML inicial en Supabase |
+| Taller 4 | Consultas avanzadas y vistas |
+| Taller 5 | Bases de datos vectoriales con pgvector |
+
+### Proyectos de referencia
+
+Los proyectos de referencia ilustran el ciclo completo de desarrollo de una base de datos relacional sobre dominios reales:
+
+- **Sistema de gestión de casino**: modela mesas de juego, fichas, empleados, clientes y transacciones financieras. Incluye diagrama EER, scripts DDL completos y consultas analíticas.
+- **Sistema EPS (Entidad Promotora de Salud)**: modela afiliados, médicos, citas, diagnósticos, medicamentos y facturación. Ejemplifica el uso de integridad referencial y reglas de negocio mediante restricciones `CHECK` y `TRIGGER`.
+
+<Note>
+  Los archivos fuente de todos los talleres y proyectos de referencia están disponibles en el repositorio oficial del curso en GitHub: [tutosrive/db-relacionales-2026-1](https://github.com/tutosrive/db-relacionales-2026-1). Se recomienda clonar el repositorio al inicio del curso para tener siempre la versión más actualizada de los materiales.
+</Note>
+
+## Objetivos del curso
+
+Al finalizar **Bases de Datos Relacionales 2026-I**, el estudiante será capaz de:
+
+1. **Diseñar** esquemas de bases de datos complejos utilizando el modelo EER, identificando correctamente entidades, relaciones, cardinalidades y jerarquías de especialización/generalización.
+2. **Normalizar** un esquema relacional hasta la Forma Normal de Boyce-Codd, detectando y eliminando dependencias funcionales parciales y transitivas.
+3. **Implementar** bases de datos en PostgreSQL mediante Supabase, aplicando restricciones de integridad (llaves primarias, foráneas, unicidad y verificación) con DDL estándar.
+4. **Consultar y manipular** datos con SQL (DML): sentencias `SELECT` con `JOIN`, `GROUP BY`, `HAVING`, subconsultas correlacionadas y vistas materializadas.
+5. **Resolver** consultas formalmente con álgebra relacional, aplicando los operadores σ, π, ⨝, ρ, ∪, ∩, − y ÷ en la herramienta RelaX.
+6. **Explorar** capacidades de inteligencia artificial sobre datos relacionales usando pgvector: almacenar embeddings, crear índices vectoriales y ejecutar búsquedas por similitud semántica.
+
+## Herramientas del curso
+
+El curso utiliza un conjunto de herramientas modernas, todas de acceso gratuito, que reproducen el entorno de trabajo de un ingeniero de datos profesional.
+
+<CardGroup cols={2}>
+  <Card title="PostgreSQL / Supabase" icon="elephant" href="https://supabase.com">
+    Motor de base de datos relacional de código abierto, accesible a través de la plataforma Supabase que provee SQL Editor, autenticación, almacenamiento y APIs REST generadas automáticamente.
+  </Card>
+  <Card title="RelaX" icon="table" href="https://dbis-uibk.github.io/relax/">
+    Calculadora de álgebra relacional en el navegador. Permite definir relaciones, ejecutar expresiones con notación formal y verificar resultados de los ejercicios teóricos del curso.
+  </Card>
+  <Card title="draw.io" icon="diagram-project" href="https://app.diagrams.net/">
+    Herramienta de diagramación gratuita usada para construir los diagramas EER del curso. Soporta exportación a PNG, SVG y XML, e integración con Google Drive y GitHub.
+  </Card>
+  <Card title="Google Colab" icon="code" href="https://colab.research.google.com/">
+    Entorno de notebooks Python en la nube usado en el taller de pgvector. No requiere instalación local y permite conectarse a bases de datos Neon con psycopg2 y SQLAlchemy.
+  </Card>
+</CardGroup>
+
+<Note>
+  Ninguna herramienta requiere instalación de software en tu equipo local. Todo el trabajo del curso puede realizarse desde un navegador web moderno. Si deseas trabajar localmente, puedes instalar PostgreSQL 16 y pgAdmin 4 de forma opcional.
+</Note>
+
+## Álgebra relacional: notación del curso
+
+El curso emplea la notación matemática estándar para los operadores del álgebra relacional. A continuación se presenta un resumen de los operadores cubiertos:
+
+| Operador | Símbolo | Descripción |
+|----------|---------|-------------|
+| Selección | σ\_condición(R) | Filtra filas que satisfacen una condición |
+| Proyección | π\_atributos(R) | Selecciona columnas específicas |
+| Reunión natural | R ⨝ S | Combina relaciones por atributos comunes |
+| Reunión theta | R ⨝\_condición S | Combina relaciones con condición arbitraria |
+| Renombramiento | ρ\_nombre(R) | Cambia el nombre de una relación o atributos |
+| Unión | R ∪ S | Todas las filas de R y S (sin duplicados) |
+| Intersección | R ∩ S | Filas presentes en R y en S |
+| Diferencia | R − S | Filas en R que no están en S |
+| División | R ÷ S | Filas de R asociadas con todas las filas de S |
+
+<Note>
+  Los ejercicios de álgebra relacional del Taller 2 están disponibles en formato RelaX (`.relaX`) en el repositorio del curso. Cada ejercicio incluye las relaciones de entrada y la solución esperada para que puedas verificar tus respuestas.
+</Note>
