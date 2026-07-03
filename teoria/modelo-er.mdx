@@ -1,5 +1,5 @@
 ---
-title: "Modelo Entidad-Relación: diseño conceptual de bases de datos"
+title: "Modelo Entidad-Relación: diseño conceptual de BD"
 sidebarTitle: "Modelo E-R"
 description: "Aprende a diseñar esquemas de bases de datos con el modelo entidad-relación (E-R) y su extensión EER: entidades, atributos, relaciones y cardinalidades."
 ---
@@ -97,7 +97,7 @@ CURSO (codcurso*, nombrecurso, max_alumnos, titulo, fecha_inicio, fecha_fin, num
   |
   | N:1
   |
-PROFESOR (cedprofesor*, nombre, apellido, ...)
+PROFESOR (cedula*, nombre, apellido, direccion, titulo, cuota_hora)
 ```
 
 **Relaciones:**
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS alumnos (
 CREATE TABLE IF NOT EXISTS cursos (
   codcurso    INTEGER      NOT NULL,
   nombrecurso VARCHAR(50)  NOT NULL,
-  cedprofesor VARCHAR(15)  NOT NULL,   -- FK → profesor
+  cedprofesor VARCHAR(15)  NOT NULL,   -- FK → profesores(cedula)
   max_alumnos INTEGER,
   titulo      VARCHAR(80),
   fecha_inicio DATE,
@@ -133,8 +133,8 @@ CREATE TABLE IF NOT EXISTS cursos (
 
 -- Tabla asociativa ALUMNO_CURSO (relación M:N)
 CREATE TABLE IF NOT EXISTS alumno_curso (
-  cedula    VARCHAR(15) NOT NULL,   -- FK → alumnos
-  codcurso  INTEGER     NOT NULL    -- FK → cursos
+  cedula_alumno VARCHAR(15) NOT NULL,   -- FK → alumnos
+  codcurso      INTEGER     NOT NULL    -- FK → cursos
 );
 ```
 
@@ -156,7 +156,7 @@ Una entidad de mayor nivel (superclase) se descompone en subclases que heredan s
 ```
 PERSONA (cedula, nombre, apellido)
   ├── ALUMNO (fecha_matricula, promedio)
-  └── PROFESOR (titulo_academico, departamento)
+  └── PROFESOR (titulo, cuota_hora)
 ```
 
 **Tipos de especialización:**

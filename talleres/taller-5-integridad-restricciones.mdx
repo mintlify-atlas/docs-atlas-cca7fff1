@@ -1,7 +1,7 @@
 ---
-title: "Taller 5: Integridad referencial y restricciones en PostgreSQL"
+title: "Taller 5: Restricciones de integridad en PostgreSQL"
 sidebarTitle: "Taller 5 – Restricciones"
-description: "Domina las restricciones de integridad en PostgreSQL: PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE, NOT NULL y comportamientos ON DELETE/ON UPDATE con ejemplos prácticos."
+description: "Domina PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE y NOT NULL en PostgreSQL: claves compuestas, comportamientos ON DELETE/ON UPDATE y errores comunes."
 ---
 
 La integridad de los datos es uno de los pilares fundamentales de las bases de datos relacionales. Sin restricciones, nada impide que un curso referencie un profesor que no existe, que un alumno tenga un género inválido, o que dos registros compartan el mismo identificador. PostgreSQL ofrece un conjunto completo de mecanismos de restricción que se verifican automáticamente en cada operación de escritura, rechazando los datos que violan las reglas definidas. En este taller explorarás cada tipo de restricción con ejemplos reales, aprenderás a definir claves primarias y foráneas compuestas, y entenderás los distintos comportamientos disponibles cuando se eliminan o actualizan registros referenciados.

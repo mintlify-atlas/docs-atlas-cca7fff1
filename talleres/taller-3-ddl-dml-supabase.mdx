@@ -12,7 +12,7 @@ El esquema de este taller representa un sistema académico simplificado compuest
 
 | Tabla | Descripción |
 |---|---|
-| `profesores` | Datos personales y especialidad de cada docente |
+| `profesores` | Datos personales, título y cuota por hora de cada docente |
 | `alumnos` | Datos personales de los estudiantes matriculados |
 | `cursos` | Catálogo de cursos con su profesor asignado y detalles |
 | `alumno_curso` | Tabla de unión que registra qué alumno está inscrito en qué curso |
@@ -69,16 +69,18 @@ Antes de ejecutar el taller, familiarízate con las restricciones que aparecerá
     cedula VARCHAR(15) NOT NULL,
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
-    especialidad VARCHAR(80)
+    direccion VARCHAR(100),
+    titulo VARCHAR(80),
+    cuota_hora NUMERIC(10, 2) NOT NULL
   );
   ALTER TABLE profesores
   ADD CONSTRAINT pk_profesor PRIMARY KEY (cedula);
 
-  INSERT INTO profesores (cedula, nombre, apellido, especialidad)
+  INSERT INTO profesores (cedula, nombre, apellido, direccion, titulo, cuota_hora)
   VALUES
-    ('12345678', 'Carlos', 'Rodríguez', 'Bases de Datos'),
-    ('23456789', 'Luisa', 'Martínez', 'Desarrollo Web'),
-    ('34567890', 'Andrés', 'García', 'Redes');
+    ('12345678', 'Juan', 'Perez', 'Calle 10 #5-20', 'Ingeniero de Sistemas', 50.00),
+    ('23456789', 'Maria', 'Gomez', 'Carrera 15 #10-30', 'Licenciada en Matematicas', 45.50),
+    ('34567890', 'Luis', 'Rodriguez', 'Avenida Central 45', 'Magister en Fisica', 60.00);
   ```
 
   Verifica los datos insertados con:
@@ -167,11 +169,14 @@ Antes de ejecutar el taller, familiarízate con las restricciones que aparecerá
   ```sql
   CREATE TABLE IF NOT EXISTS alumno_curso (
     cedula_alumno VARCHAR(15) NOT NULL,
-    codcurso INTEGER NOT NULL,
-    CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula_alumno, codcurso),
-    CONSTRAINT fk_alumno FOREIGN KEY (cedula_alumno) REFERENCES alumnos (cedula),
-    CONSTRAINT fk_curso FOREIGN KEY (codcurso) REFERENCES cursos (codcurso)
+    codcurso INTEGER NOT NULL
   );
+  ALTER TABLE alumno_curso
+  ADD CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula_alumno, codcurso);
+  ALTER TABLE alumno_curso
+  ADD CONSTRAINT fk_alumno_curso_curso FOREIGN KEY (codcurso) REFERENCES cursos (codcurso);
+  ALTER TABLE alumno_curso
+  ADD CONSTRAINT fk_alumno_curso_alumno FOREIGN KEY (cedula_alumno) REFERENCES alumnos (cedula);
   ```
 
   ### Insertar datos en `alumno_curso`
@@ -182,11 +187,8 @@ Antes de ejecutar el taller, familiarízate con las restricciones que aparecerá
   INSERT INTO alumno_curso (cedula_alumno, codcurso)
   VALUES
     ('10000001', 101),
-    ('10000001', 102),
     ('10000002', 101),
-    ('10000002', 103),
-    ('10000003', 102),
-    ('10000003', 103);
+    ('10000003', 102);
   ```
 
   Consulta la inscripción completa con un `JOIN`:
@@ -216,5 +218,5 @@ Antes de ejecutar el taller, familiarízate con las restricciones que aparecerá
 | `cursos` | `ck_minimo_alumnos_requeridos` | CHECK | `max_alumnos >= 10` |
 | `cursos` | `ck_minimo_num_horas` | CHECK | `num_horas > 100` |
 | `alumno_curso` | `pk_alumno_curso` | PRIMARY KEY compuesta | Par `(cedula_alumno, codcurso)` único |
-| `alumno_curso` | `fk_alumno` | FOREIGN KEY | `cedula_alumno` debe existir en `alumnos` |
-| `alumno_curso` | `fk_curso` | FOREIGN KEY | `codcurso` debe existir en `cursos` |
+| `alumno_curso` | `fk_alumno_curso_alumno` | FOREIGN KEY | `cedula_alumno` debe existir en `alumnos` |
+| `alumno_curso` | `fk_alumno_curso_curso` | FOREIGN KEY | `codcurso` debe existir en `cursos` |

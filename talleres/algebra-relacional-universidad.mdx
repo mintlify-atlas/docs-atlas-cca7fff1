@@ -1,7 +1,7 @@
 ---
 title: "Álgebra Relacional: 100 ejercicios con dataset Universidad"
 sidebarTitle: "Taller Universidad"
-description: "100 ejercicios de álgebra relacional organizados en 10 niveles usando el dataset UniversidadCompleta: desde selección básica hasta división y self-joins avanzados."
+description: "100 ejercicios de álgebra relacional en 10 niveles: selección, join, diferencia, división y self-joins usando el dataset UniversidadCompleta en RelaX."
 ---
 
 Este taller reúne **100 ejercicios de álgebra relacional** organizados en 10 niveles de dificultad progresiva. El dataset **UniversidadCompleta** modela un sistema académico real con estudiantes, cursos, profesores, inscripciones y prerrequisitos, lo que permite formular desde consultas elementales de selección hasta razonamientos complejos con división, self-join y cuantificadores universales. Los niveles 1 a 6 se trabajan en clase; los niveles 7 a 10 son de práctica avanzada y constituyen el tipo de pregunta esperada en exámenes.
@@ -13,7 +13,7 @@ Este taller reúne **100 ejercicios de álgebra relacional** organizados en 10 n
 </Card>
 
 <Note>
-  Antes de intentar cualquier ejercicio, carga el dataset en RelaX usando el **Group Editor**: pega el bloque completo de la sección siguiente y pulsa **"use this group"**. Las relaciones `estudiante`, `curso`, `inscribe`, `profesor`, `dicta`, `prerrequisito`, `amistad` y `salon` quedarán disponibles de inmediato.
+  Antes de intentar cualquier ejercicio, carga el dataset en RelaX usando el **Group Editor**: pega el bloque completo de la sección siguiente y pulsa **"use this group"**. Todas las relaciones del modelo académico quedarán disponibles de inmediato.
 </Note>
 
 ## Dataset: UniversidadCompleta
@@ -39,6 +39,35 @@ id:number, nombre:string, carrera:string, semestre:number, ciudad:string
 12, "David", "Electronica", 3, "Bogota"
 }
 
+egresado = {
+id:number, nombre:string, carrera:string, semestre:number, ciudad:string
+
+13, "Paula", "Sistemas", 10, "Manizales"
+14, "Felipe", "Civil", 10, "Bogota"
+15, "Nicolas", "Industrial", 10, "Pereira"
+16, "Maria", "Electronica", 10, "Armenia"
+}
+
+intercambio = {
+id:number, nombre:string, carrera:string, semestre:number, ciudad:string
+
+17, "Juan", "Sistemas", 5, "Cali"
+18, "Diana", "Civil", 4, "Bogota"
+19, "Oscar", "Industrial", 6, "Medellin"
+20, "Lucia", "Electronica", 3, "Pereira"
+}
+
+profesor = {
+id_prof:number, nombre:string, departamento:string
+
+101, "Ruiz", "Computacion"
+102, "Garcia", "Matematicas"
+103, "Torres", "Electronica"
+104, "Lopez", "Industrial"
+105, "Martinez", "Civil"
+106, "Castro", "Computacion"
+}
+
 curso = {
 cod:number, nombre:string, creditos:number, departamento:string
 
@@ -54,6 +83,15 @@ cod:number, nombre:string, creditos:number, departamento:string
 210, "IA", 4, "Computacion"
 }
 
+electiva = {
+cod:number, nombre:string, creditos:number, departamento:string
+
+301, "Robotica", 3, "Computacion"
+302, "Etica", 2, "Industrial"
+303, "Topografia", 3, "Civil"
+304, "Bioelectronica", 4, "Electronica"
+}
+
 inscribe = {
 id_est:number, cod:number, nota:number
 
@@ -61,19 +99,42 @@ id_est:number, cod:number, nota:number
 1, 202, 3.9
 1, 210, 4.7
 2, 206, 3.5
+2, 204, 2.9
+3, 201, 4.0
+3, 203, 3.8
+4, 208, 4.2
+5, 202, 4.8
+5, 204, 4.1
+6, 209, 3.6
+7, 206, 4.0
+8, 201, 3.2
+8, 210, 4.6
+9, 208, 3.9
+10, 209, 3.3
+11, 202, 4.9
+11, 203, 4.2
+11, 210, 5.0
+12, 206, 2.8
+}
+
+aprobado = {
+id_est:number, cod:number, nota:number
+
+1, 201, 4.5
+1, 210, 4.7
 3, 201, 4.0
 5, 202, 4.8
-8, 201, 3.2
-11, 202, 4.9
+8, 210, 4.6
 11, 210, 5.0
 }
 
-profesor = {
-id_prof:number, nombre:string, departamento:string
+reprobado = {
+id_est:number, cod:number, nota:number
 
-101, "Ruiz", "Computacion"
-102, "Garcia", "Matematicas"
-103, "Torres", "Electronica"
+1, 204, 2.9
+3, 205, 2.3
+2, 204, 2.9
+12, 206, 2.8
 }
 
 dicta = {
@@ -81,8 +142,14 @@ id_prof:number, cod:number, grupo:number
 
 101, 201, 1
 101, 210, 1
+106, 202, 1
+106, 203, 1
 102, 204, 1
+102, 205, 1
 103, 206, 1
+103, 207, 1
+104, 208, 1
+105, 209, 1
 }
 
 prerrequisito = {
@@ -92,6 +159,8 @@ curso:number, requisito:number
 210, 201
 210, 202
 206, 204
+207, 206
+209, 205
 }
 
 amistad = {
@@ -101,6 +170,10 @@ id1:number, id2:number
 1, 5
 3, 8
 5, 11
+8, 11
+2, 7
+4, 9
+6, 10
 }
 
 salon = {
@@ -110,6 +183,11 @@ cod:number, edificio:string, aula:string
 202, "BloqueA", "102"
 203, "BloqueB", "201"
 204, "BloqueC", "301"
+205, "BloqueC", "302"
+206, "BloqueD", "401"
+207, "BloqueD", "402"
+208, "BloqueE", "501"
+209, "BloqueF", "601"
 210, "BloqueA", "103"
 }
 ```
@@ -118,14 +196,19 @@ cod:number, edificio:string, aula:string
 
 | Relación | Descripción | Cardinalidad |
 |---|---|---|
-| `estudiante` | Datos de cada estudiante | 12 tuplas |
-| `curso` | Catálogo de cursos ofrecidos | 10 tuplas |
-| `inscribe` | Inscripciones con nota | 9 tuplas |
-| `profesor` | Planta docente | 3 tuplas |
-| `dicta` | Asignación profesor–curso–grupo | 4 tuplas |
-| `prerrequisito` | Dependencias entre cursos | 4 tuplas |
-| `amistad` | Pares de estudiantes amigos | 4 tuplas |
-| `salon` | Ubicación física de cada curso | 5 tuplas |
+| `estudiante` | Estudiantes activos | 12 tuplas |
+| `egresado` | Estudiantes graduados | 4 tuplas |
+| `intercambio` | Estudiantes de intercambio | 4 tuplas |
+| `profesor` | Planta docente | 6 tuplas |
+| `curso` | Catálogo de cursos obligatorios | 10 tuplas |
+| `electiva` | Catálogo de cursos electivos | 4 tuplas |
+| `inscribe` | Inscripciones con nota | 20 tuplas |
+| `aprobado` | Inscripciones con nota aprobatoria | 6 tuplas |
+| `reprobado` | Inscripciones con nota reprobatoria | 4 tuplas |
+| `dicta` | Asignación profesor–curso–grupo | 10 tuplas |
+| `prerrequisito` | Dependencias entre cursos | 6 tuplas |
+| `amistad` | Pares de estudiantes amigos | 8 tuplas |
+| `salon` | Ubicación física de cada curso | 10 tuplas |
 
 ---
 
@@ -226,7 +309,7 @@ cod:number, edificio:string, aula:string
     π id (estudiante) - π id_est (inscribe)
     ```
 
-    Resultado: IDs 4 (Julian), 6 (Camilo), 7 (Sofia), 9 (Valeria), 10 (Daniel), 12 (David).
+    Resultado: conjunto vacío — con el dataset completo todos los estudiantes tienen al menos una inscripción registrada.
 
     ---
 
@@ -263,7 +346,7 @@ cod:number, edificio:string, aula:string
     ```text
     π nombre (profesor ⨝ profesor.id_prof=dicta.id_prof dicta)
     ```
-    Resultado: Ruiz, Garcia, Torres.
+    Resultado: Ruiz, Garcia, Torres, Lopez, Martinez, Castro.
 
     ---
 
@@ -332,7 +415,7 @@ cod:number, edificio:string, aula:string
 
     todosEstudiantes - reprobados
     ```
-    Con el dataset actual no hay notas por debajo de 3.0, pero el patrón es correcto para datos más variados. Para recuperar el nombre: join con `estudiante`.
+    Con el dataset actual, los estudiantes con nota inferior a 3.0 en `inscribe` son Luis (2, cod 204) y David (12, cod 206). Para recuperar el nombre: join con `estudiante`.
 
     ---
 
@@ -354,7 +437,7 @@ cod:number, edificio:string, aula:string
 
     todosCursos - cursosInscritos
     ```
-    Resultado: Redes (203), Calculo (204), Fisica (205), Control (207), Procesos (208), Materiales (209), Circuitos (206) — ningún estudiante los tiene en `inscribe`.
+    Resultado: Fisica (205), Control (207) — son los únicos cursos del catálogo que no aparecen en ninguna fila de `inscribe`.
 
     ---
 
@@ -431,7 +514,7 @@ cod:number, edificio:string, aula:string
 
     inscripciones ÷ cursosComp
     ```
-    La división retorna los IDs de estudiantes que tienen una inscripción para **cada** curso de Computacion (201, 202, 203, 210). Con el dataset actual: Ana (1) inscribió 201, 202, 210 pero no 203 → ningún estudiante supera la división completa.
+    La división retorna los IDs de estudiantes que tienen una inscripción para **cada** curso de Computacion (201, 202, 203, 210). Con el dataset actual ningún estudiante tiene los cuatro: Ana (1) inscribió 201, 202, 210 pero no 203; Marta (3) tiene 201 y 203 pero no 202 ni 210; Sara (11) tiene 202, 203, 210 pero no 201 → la división devuelve un resultado vacío.
 
     ---
 

@@ -1,103 +1,242 @@
 ---
-title: "Proyecto de Referencia: Base de Datos de Casino Hotelero"
+title: "Casino Hotelero: Esquema Relacional de Referencia BD 2026"
 sidebarTitle: "Referencia Casino"
-description: "Esquema relacional completo de un casino hotelero: clientes, juegos, mesas, apuestas, empleados y servicios. Proyecto de referencia del curso BD Relacionales 2026-I."
+description: "Esquema relacional completo de un casino hotelero: clientes, juegos, sesiones, torneos, parqueadero, habitaciones y tokens. BD Relacionales 2026-I."
 ---
 
-Este proyecto de referencia presenta el diseño e implementación de una base de datos relacional completa para un **casino hotelero**. El esquema cubre la gestión de mesas de juego, sesiones de clientes, registro de apuestas, administración de empleados y venta de servicios adicionales. Fue desarrollado como ejemplo guía dentro del curso **Bases de Datos Relacionales 2026-I** y puede servir como punto de partida o plantilla de comparación para los proyectos propios de los estudiantes.
+Este proyecto de referencia presenta el diseño e implementación de una base de datos relacional completa para un **casino hotelero**. El esquema cubre la gestión de juegos, sesiones de clientes, registro de apuestas, torneos, administración de empleados, reservas de habitaciones, parqueadero y transacciones con tokens. Fue desarrollado como ejemplo guía dentro del curso **Bases de Datos Relacionales 2026-I** y puede servir como punto de partida o plantilla de comparación para los proyectos propios de los estudiantes.
 
 <Note>
-  Este proyecto fue diseñado originalmente para **MySQL**. Los tipos de dato `AUTO_INCREMENT`, la sintaxis de `FOREIGN KEY` inline y algunas funciones de fecha difieren en PostgreSQL. Para migrar el esquema, reemplaza `AUTO_INCREMENT` por `SERIAL` (o `GENERATED ALWAYS AS IDENTITY`), y ajusta los tipos `DATETIME` a `TIMESTAMP`.
+  Este proyecto fue diseñado originalmente para **MySQL 8**. Los tipos de dato `AUTO_INCREMENT`, la sintaxis de llave foránea y algunas funciones de fecha difieren en PostgreSQL. Para migrar el esquema, reemplaza `AUTO_INCREMENT` por `SERIAL` (o `GENERATED ALWAYS AS IDENTITY`) y ajusta los tipos `DATETIME` a `TIMESTAMP`.
 </Note>
 
 ## Universo de Discurso
 
-El casino hotelero opera con un identificador tributario único (`nitCasino`) y cuenta con una ubicación física y una capacidad máxima de clientes. La empresa gestiona una cartera de **juegos** (póker, ruleta, blackjack, etc.), cada uno con sus reglas y descripción. Los juegos se asignan a **mesas** físicas que tienen un número identificador, una capacidad máxima de jugadores y un estado operacional (activa, en mantenimiento, cerrada).
+El casino hotelero se identifica con un NIT único (`nitCasino`) y registra su ubicación y capacidad máxima de clientes. Ofrece un catálogo de **juegos** (póker, ruleta, blackjack, etc.) cada uno con su tipo, nombre y descripción, todos vinculados al casino. Los **clientes** registrados participan en **sesiones de juego** (`sesionjuego`) que pueden asociarse a un empleado supervisor y a un torneo activo. Dentro de cada sesión el cliente genera una o varias **apuestas** de las que se registra el monto, la fecha/hora, el resultado y la ganancia.
 
-Los **clientes** se registran con sus datos personales y participan en **sesiones de juego** vinculadas a una mesa específica. Dentro de cada sesión, el cliente realiza una o varias **apuestas** de las que se registra el monto, la fecha y hora, el resultado y la ganancia obtenida. El casino también cuenta con **empleados** asignados a él y ofrece servicios adicionales que los clientes pueden adquirir mediante **compras de ticket**.
+El establecimiento también gestiona **gerentes** que supervisan al personal, **empleados** referenciados a su gerente, y servicios adicionales como el **parqueadero** (con control de placa, tipo de vehículo y tarifa por hora) registrado en `compraticket`, la reserva de **habitaciones** con desglose de tarifas, y un sistema de **tokens** cuyas transacciones de compra/canje se almacenan en `transacciontoken`. Las **máquinas expendedoras** son operadas por **operadores** externos registrados en `operadorxmaquina`. Los **torneos** tienen premio, capacidad, fechas y estado, y están vinculados al casino.
 
 ## Esquema Relacional
 
 ```sql
--- Tabla: casino
+-- ──────────────────────────────────────────────
+-- Tablas maestras independientes
+-- ──────────────────────────────────────────────
+
 CREATE TABLE casino (
-  nitCasino         INT          NOT NULL PRIMARY KEY,
-  ubicacion         VARCHAR(255),
-  capacidadClientes INT
+  nitCasino         INT          NOT NULL,
+  ubicacion         VARCHAR(255) DEFAULT NULL,
+  capacidadClientes INT          DEFAULT NULL,
+  PRIMARY KEY (nitCasino)
 );
 
--- Tabla: cliente
-CREATE TABLE cliente (
-  idCliente  INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  cedCliente VARCHAR(20)  NOT NULL,
-  nombre     VARCHAR(100) NOT NULL,
-  apellido   VARCHAR(100) NOT NULL,
-  telefono   VARCHAR(20),
-  correo     VARCHAR(100),
-  edad       INT
+CREATE TABLE gerente (
+  idGerente   INT          NOT NULL AUTO_INCREMENT,
+  nombre      VARCHAR(100) NOT NULL,
+  apellido    VARCHAR(100) NOT NULL,
+  cedGerente  VARCHAR(20)  NOT NULL,
+  estado      VARCHAR(50)  DEFAULT NULL,
+  PRIMARY KEY (idGerente)
 );
 
--- Tabla: juego
+CREATE TABLE habitacion (
+  idHabitacion INT         NOT NULL AUTO_INCREMENT,
+  capacidad    INT         NOT NULL,
+  tipo         VARCHAR(50) NOT NULL,
+  estado       VARCHAR(50) NOT NULL,
+  PRIMARY KEY (idHabitacion)
+);
+
+CREATE TABLE maquinaexpendedora (
+  numSerie         INT            NOT NULL,
+  capacidad        INT            DEFAULT NULL,
+  montoDisponible  DECIMAL(10,2)  DEFAULT NULL,
+  tipo             VARCHAR(50)    DEFAULT NULL,
+  PRIMARY KEY (numSerie)
+);
+
+CREATE TABLE metodopago (
+  idPago     INT  NOT NULL AUTO_INCREMENT,
+  tipoPago   VARCHAR(50) DEFAULT NULL,
+  datosPago  TEXT,
+  PRIMARY KEY (idPago)
+);
+
+CREATE TABLE operador (
+  idOperador   INT          NOT NULL AUTO_INCREMENT,
+  cedOperador  VARCHAR(20)  DEFAULT NULL,
+  nombre       VARCHAR(100) DEFAULT NULL,
+  nomEmpresa   VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (idOperador)
+);
+
+CREATE TABLE parqueadero (
+  idParqueadero INT NOT NULL AUTO_INCREMENT,
+  motosLibre    INT DEFAULT NULL,
+  carrosLibre   INT DEFAULT NULL,
+  capacidad     INT DEFAULT NULL,
+  PRIMARY KEY (idParqueadero)
+);
+
+CREATE TABLE token (
+  idToken    INT           NOT NULL AUTO_INCREMENT,
+  valor      DECIMAL(10,2) DEFAULT NULL,
+  tipoToken  VARCHAR(50)   DEFAULT NULL,
+  PRIMARY KEY (idToken)
+);
+
+-- ──────────────────────────────────────────────
+-- Entidades que dependen de casino / gerente
+-- ──────────────────────────────────────────────
+
 CREATE TABLE juego (
-  idJuego     INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  nombreJuego VARCHAR(100),
+  idJuego     INT          NOT NULL AUTO_INCREMENT,
+  tipoJuego   VARCHAR(50)  DEFAULT NULL,
+  nombre      VARCHAR(100) DEFAULT NULL,
   descripcion TEXT,
-  reglas      TEXT
+  idCasino    INT          DEFAULT NULL,
+  PRIMARY KEY (idJuego),
+  FOREIGN KEY (idCasino) REFERENCES casino(nitCasino) ON UPDATE CASCADE
 );
 
--- Tabla: mesa
-CREATE TABLE mesa (
-  idMesa          INT         NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  numeroMesa      INT,
-  capacidadMaxima INT,
-  estado          VARCHAR(50),
-  idJuego         INT,
-  FOREIGN KEY (idJuego) REFERENCES juego(idJuego)
+CREATE TABLE torneo (
+  idTorneo         INT           NOT NULL AUTO_INCREMENT,
+  premio           DECIMAL(10,2) DEFAULT NULL,
+  fechaHoraInicio  DATETIME      DEFAULT NULL,
+  fechaHoraFinal   DATETIME      DEFAULT NULL,
+  estado           VARCHAR(50)   DEFAULT NULL,
+  capacidad        INT           DEFAULT NULL,
+  numParticipantes INT           DEFAULT NULL,
+  idCasino         INT           DEFAULT NULL,
+  PRIMARY KEY (idTorneo),
+  FOREIGN KEY (idCasino) REFERENCES casino(nitCasino) ON UPDATE CASCADE
 );
 
--- Tabla: sesionjuego
-CREATE TABLE sesionjuego (
-  idSesion        INT      NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  idCliente       INT,
-  idMesa          INT,
-  fechaHoraInicio DATETIME,
-  fechaHoraFin    DATETIME,
-  FOREIGN KEY (idCliente) REFERENCES cliente(idCliente),
-  FOREIGN KEY (idMesa)    REFERENCES mesa(idMesa)
-);
-
--- Tabla: apuesta
-CREATE TABLE apuesta (
-  idApuesta      INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  idSesionJuego  INT,
-  montoApuesta   DECIMAL(10,2),
-  fechaHora      DATETIME,
-  resultado      VARCHAR(50),
-  montoGanancia  DECIMAL(10,2),
-  FOREIGN KEY (idSesionJuego) REFERENCES sesionjuego(idSesion)
-    ON UPDATE CASCADE
-);
-
--- Tabla: empleado
 CREATE TABLE empleado (
-  idEmpleado  INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  cedEmpleado VARCHAR(20),
-  nombre      VARCHAR(100),
-  apellido    VARCHAR(100),
-  cargo       VARCHAR(50),
-  salario     DECIMAL(10,2),
-  idCasino    INT,
-  FOREIGN KEY (idCasino) REFERENCES casino(nitCasino)
+  idEmpleado  INT           NOT NULL AUTO_INCREMENT,
+  cedEmpleado VARCHAR(20)   NOT NULL,
+  nombre      VARCHAR(100)  NOT NULL,
+  apellido    VARCHAR(100)  NOT NULL,
+  teléfono    VARCHAR(20)   DEFAULT NULL,
+  correo      VARCHAR(100)  DEFAULT NULL,
+  salario     DECIMAL(10,2) DEFAULT NULL,
+  idGerente   INT           DEFAULT NULL,
+  PRIMARY KEY (idEmpleado),
+  FOREIGN KEY (idGerente) REFERENCES gerente(idGerente) ON UPDATE CASCADE
 );
 
--- Tabla: compraticket (compras de servicios adicionales)
+CREATE TABLE cliente (
+  idCliente   INT          NOT NULL AUTO_INCREMENT,
+  cedCliente  VARCHAR(20)  NOT NULL,
+  nombre      VARCHAR(100) NOT NULL,
+  apellido    VARCHAR(100) NOT NULL,
+  teléfono    VARCHAR(20)  DEFAULT NULL,
+  correo      VARCHAR(100) DEFAULT NULL,
+  edad        INT          DEFAULT NULL,
+  PRIMARY KEY (idCliente)
+);
+
+-- ──────────────────────────────────────────────
+-- Sesiones, apuestas y operaciones
+-- ──────────────────────────────────────────────
+
+CREATE TABLE sesionjuego (
+  idSesion        INT      NOT NULL AUTO_INCREMENT,
+  idJuego         INT      DEFAULT NULL,
+  idCliente       INT      DEFAULT NULL,
+  fechaHoraInicio DATETIME DEFAULT NULL,
+  fechaHoraFinal  DATETIME DEFAULT NULL,
+  idEmpleado      INT      DEFAULT NULL,
+  idTorneo        INT      DEFAULT NULL,
+  PRIMARY KEY (idSesion),
+  FOREIGN KEY (idJuego)    REFERENCES juego(idJuego)       ON UPDATE CASCADE,
+  FOREIGN KEY (idCliente)  REFERENCES cliente(idCliente)   ON UPDATE CASCADE,
+  FOREIGN KEY (idEmpleado) REFERENCES empleado(idEmpleado) ON UPDATE CASCADE,
+  FOREIGN KEY (idTorneo)   REFERENCES torneo(idTorneo)     ON UPDATE CASCADE
+);
+
+CREATE TABLE apuesta (
+  idApuesta      INT           NOT NULL AUTO_INCREMENT,
+  idSesionJuego  INT           DEFAULT NULL,
+  montoApuesta   DECIMAL(10,2) DEFAULT NULL,
+  fechaHora      DATETIME      DEFAULT NULL,
+  resultado      VARCHAR(50)   DEFAULT NULL,
+  montoGanancia  DECIMAL(10,2) DEFAULT NULL,
+  PRIMARY KEY (idApuesta),
+  FOREIGN KEY (idSesionJuego) REFERENCES sesionjuego(idSesion) ON UPDATE CASCADE
+);
+
 CREATE TABLE compraticket (
-  idCompra   INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  idCliente  INT,
-  idServicio INT,
-  fecha      DATETIME,
-  monto      DECIMAL(10,2),
-  FOREIGN KEY (idCliente) REFERENCES cliente(idCliente)
+  idCompra        INT           NOT NULL AUTO_INCREMENT,
+  idCliente       INT           DEFAULT NULL,
+  idParqueadero   INT           DEFAULT NULL,
+  placa           VARCHAR(20)   DEFAULT NULL,
+  tipoVehiculo    VARCHAR(50)   DEFAULT NULL,
+  tarifaxhora     DECIMAL(10,2) DEFAULT NULL,
+  fechaHoraInicio DATETIME      DEFAULT NULL,
+  fechaHoraFinal  DATETIME      DEFAULT NULL,
+  total           DECIMAL(10,2) DEFAULT NULL,
+  estado          VARCHAR(50)   DEFAULT NULL,
+  idMetodoPago    INT           DEFAULT NULL,
+  idEmpleado      INT           DEFAULT NULL,
+  PRIMARY KEY (idCompra),
+  FOREIGN KEY (idCliente)     REFERENCES cliente(idCliente)         ON UPDATE CASCADE,
+  FOREIGN KEY (idMetodoPago)  REFERENCES metodopago(idPago)         ON UPDATE CASCADE,
+  FOREIGN KEY (idParqueadero) REFERENCES parqueadero(idParqueadero) ON UPDATE CASCADE,
+  FOREIGN KEY (idEmpleado)    REFERENCES empleado(idEmpleado)       ON UPDATE CASCADE
+);
+
+CREATE TABLE reservahabitacion (
+  idReserva              INT           NOT NULL AUTO_INCREMENT,
+  idHabitacion           INT           DEFAULT NULL,
+  idCliente              INT           DEFAULT NULL,
+  idMetodoPago           INT           DEFAULT NULL,
+  fechaHoraInicio        DATETIME      DEFAULT NULL,
+  fechaHoraFinal         DATETIME      DEFAULT NULL,
+  descripción            TEXT,
+  tarifaxproductoBarato  DECIMAL(10,2) DEFAULT NULL,
+  tarifaxproductoMedio   DECIMAL(10,2) DEFAULT NULL,
+  tarifaxproductoCaro    DECIMAL(10,2) DEFAULT NULL,
+  tarifaXdia             DECIMAL(10,2) DEFAULT NULL,
+  total                  DECIMAL(10,2) DEFAULT NULL,
+  idEmpleado             INT           DEFAULT NULL,
+  nProdBarato            INT           DEFAULT NULL,
+  nProdMedio             INT           DEFAULT NULL,
+  nProdCaro              INT           DEFAULT NULL,
+  PRIMARY KEY (idReserva),
+  FOREIGN KEY (idHabitacion) REFERENCES habitacion(idHabitacion) ON UPDATE CASCADE,
+  FOREIGN KEY (idCliente)    REFERENCES cliente(idCliente)       ON UPDATE CASCADE,
+  FOREIGN KEY (idEmpleado)   REFERENCES empleado(idEmpleado)     ON UPDATE CASCADE,
+  FOREIGN KEY (idMetodoPago) REFERENCES metodopago(idPago)       ON UPDATE CASCADE
+);
+
+CREATE TABLE transacciontoken (
+  idTransaccion    INT           NOT NULL AUTO_INCREMENT,
+  idToken          INT           DEFAULT NULL,
+  idCliente        INT           DEFAULT NULL,
+  tipoTransaccion  VARCHAR(50)   DEFAULT NULL,
+  cobro            DECIMAL(10,2) DEFAULT NULL,
+  cantidad         INT           DEFAULT NULL,
+  fechaHora        DATETIME      DEFAULT NULL,
+  idMetodoPago     INT           DEFAULT NULL,
+  idEmpleado       INT           DEFAULT NULL,
+  PRIMARY KEY (idTransaccion),
+  FOREIGN KEY (idToken)       REFERENCES token(idToken)           ON UPDATE CASCADE,
+  FOREIGN KEY (idCliente)     REFERENCES cliente(idCliente)       ON UPDATE CASCADE,
+  FOREIGN KEY (idMetodoPago)  REFERENCES metodopago(idPago)       ON UPDATE CASCADE,
+  FOREIGN KEY (idEmpleado)    REFERENCES empleado(idEmpleado)     ON UPDATE CASCADE
+);
+
+CREATE TABLE operadorxmaquina (
+  idOperadorMaquina INT           NOT NULL AUTO_INCREMENT,
+  fecha             DATE          DEFAULT NULL,
+  costo             DECIMAL(10,2) DEFAULT NULL,
+  descripcion       TEXT,
+  maquinaExp        INT           DEFAULT NULL,
+  idOperador        INT           DEFAULT NULL,
+  PRIMARY KEY (idOperadorMaquina),
+  FOREIGN KEY (maquinaExp) REFERENCES maquinaexpendedora(numSerie) ON UPDATE CASCADE,
+  FOREIGN KEY (idOperador) REFERENCES operador(idOperador)         ON UPDATE CASCADE
 );
 ```
 
@@ -105,12 +244,28 @@ CREATE TABLE compraticket (
 
 ```mermaid
 erDiagram
-    CASINO ||--o{ EMPLEADO : emplea
-    CLIENTE ||--o{ SESIONJUEGO : participa
-    MESA ||--o{ SESIONJUEGO : hospeda
-    JUEGO ||--o{ MESA : asignado_a
-    SESIONJUEGO ||--o{ APUESTA : genera
-    CLIENTE ||--o{ COMPRATICKET : realiza
+    CASINO ||--o{ JUEGO : "ofrece"
+    CASINO ||--o{ TORNEO : "organiza"
+    GERENTE ||--o{ EMPLEADO : "supervisa"
+    CLIENTE ||--o{ SESIONJUEGO : "participa"
+    JUEGO ||--o{ SESIONJUEGO : "es jugado en"
+    EMPLEADO ||--o{ SESIONJUEGO : "supervisa"
+    TORNEO ||--o{ SESIONJUEGO : "incluye"
+    SESIONJUEGO ||--o{ APUESTA : "genera"
+    CLIENTE ||--o{ COMPRATICKET : "realiza"
+    PARQUEADERO ||--o{ COMPRATICKET : "registra"
+    METODOPAGO ||--o{ COMPRATICKET : "usa"
+    EMPLEADO ||--o{ COMPRATICKET : "atiende"
+    CLIENTE ||--o{ RESERVAHABITACION : "reserva"
+    HABITACION ||--o{ RESERVAHABITACION : "asignada"
+    METODOPAGO ||--o{ RESERVAHABITACION : "usa"
+    EMPLEADO ||--o{ RESERVAHABITACION : "atiende"
+    CLIENTE ||--o{ TRANSACCIONTOKEN : "realiza"
+    TOKEN ||--o{ TRANSACCIONTOKEN : "registra"
+    METODOPAGO ||--o{ TRANSACCIONTOKEN : "usa"
+    EMPLEADO ||--o{ TRANSACCIONTOKEN : "atiende"
+    MAQUINAEXPENDEDORA ||--o{ OPERADORXMAQUINA : "asignada"
+    OPERADOR ||--o{ OPERADORXMAQUINA : "opera"
 ```
 
 ## Consultas SQL de Referencia
@@ -130,8 +285,8 @@ SELECT
   SUM(a.montoGanancia)
     - SUM(a.montoApuesta) AS ganancia_neta
 FROM cliente c
-JOIN sesionjuego s ON c.idCliente  = s.idCliente
-JOIN apuesta     a ON s.idSesion   = a.idSesionJuego
+JOIN sesionjuego s ON c.idCliente    = s.idCliente
+JOIN apuesta     a ON s.idSesion     = a.idSesionJuego
 GROUP BY c.idCliente, c.nombre, c.apellido
 ORDER BY total_apuestas DESC;
 ```
@@ -140,28 +295,24 @@ ORDER BY total_apuestas DESC;
 ```sql
 -- Juego más popular medido por número de sesiones
 SELECT
-  j.nombreJuego,
+  j.nombre          AS nombreJuego,
+  j.tipoJuego,
   COUNT(s.idSesion) AS total_sesiones
 FROM juego j
-JOIN mesa       m ON j.idJuego = m.idJuego
-JOIN sesionjuego s ON m.idMesa  = s.idMesa
-GROUP BY j.idJuego, j.nombreJuego
+JOIN sesionjuego s ON j.idJuego = s.idJuego
+GROUP BY j.idJuego, j.nombre, j.tipoJuego
 ORDER BY total_sesiones DESC;
 
--- Mesas activas con su juego asignado y ocupación actual
+-- Torneos activos con número de sesiones registradas
 SELECT
-  m.numeroMesa,
-  m.capacidadMaxima,
-  m.estado,
-  j.nombreJuego,
-  COUNT(s.idSesion) AS sesiones_activas
-FROM mesa m
-JOIN juego j ON m.idJuego = j.idJuego
-LEFT JOIN sesionjuego s
-  ON m.idMesa = s.idMesa
-  AND s.fechaHoraFin IS NULL   -- sesiones aún abiertas
-WHERE m.estado = 'activa'
-GROUP BY m.idMesa, m.numeroMesa, m.capacidadMaxima, m.estado, j.nombreJuego;
+  t.idTorneo,
+  t.premio,
+  t.estado,
+  COUNT(s.idSesion) AS sesiones_registradas
+FROM torneo t
+LEFT JOIN sesionjuego s ON t.idTorneo = s.idTorneo
+WHERE t.estado = 'activo'
+GROUP BY t.idTorneo, t.premio, t.estado;
 ```
   </Tab>
   <Tab title="Subconsultas">
@@ -188,6 +339,22 @@ WHERE resumen.total_apostado > (
 ORDER BY resumen.total_apostado DESC;
 ```
   </Tab>
+  <Tab title="Parqueadero">
+```sql
+-- Ingresos por parqueadero en el último mes
+SELECT
+  p.idParqueadero,
+  p.capacidad,
+  COUNT(ct.idCompra) AS tickets_emitidos,
+  SUM(ct.total)      AS ingresos_totales
+FROM parqueadero p
+LEFT JOIN compraticket ct
+  ON p.idParqueadero = ct.idParqueadero
+  AND ct.fechaHoraInicio >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+GROUP BY p.idParqueadero, p.capacidad
+ORDER BY ingresos_totales DESC;
+```
+  </Tab>
 </Tabs>
 
 ## Diccionario de Datos
@@ -201,6 +368,29 @@ ORDER BY resumen.total_apostado DESC;
     | `capacidadClientes` | INT | — | Número máximo de clientes que pueden estar simultáneamente en el casino. |
   </Accordion>
 
+  <Accordion title="gerente">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idGerente` | INT | PK, AUTO_INCREMENT | Identificador del gerente. |
+    | `nombre` | VARCHAR(100) | NOT NULL | Nombre del gerente. |
+    | `apellido` | VARCHAR(100) | NOT NULL | Apellido del gerente. |
+    | `cedGerente` | VARCHAR(20) | NOT NULL | Cédula del gerente. |
+    | `estado` | VARCHAR(50) | — | Estado laboral (activo, retirado, etc.). |
+  </Accordion>
+
+  <Accordion title="empleado">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idEmpleado` | INT | PK, AUTO_INCREMENT | Identificador interno del empleado. |
+    | `cedEmpleado` | VARCHAR(20) | NOT NULL | Cédula o documento de identidad del empleado. |
+    | `nombre` | VARCHAR(100) | NOT NULL | Nombre del empleado. |
+    | `apellido` | VARCHAR(100) | NOT NULL | Apellido del empleado. |
+    | `teléfono` | VARCHAR(20) | — | Número de contacto del empleado. |
+    | `correo` | VARCHAR(100) | — | Correo electrónico del empleado. |
+    | `salario` | DECIMAL(10,2) | — | Salario mensual del empleado. |
+    | `idGerente` | INT | FK → gerente | Gerente al que reporta el empleado. |
+  </Accordion>
+
   <Accordion title="cliente">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
@@ -208,38 +398,44 @@ ORDER BY resumen.total_apostado DESC;
     | `cedCliente` | VARCHAR(20) | NOT NULL | Número de cédula o documento de identidad del cliente. |
     | `nombre` | VARCHAR(100) | NOT NULL | Primer nombre del cliente. |
     | `apellido` | VARCHAR(100) | NOT NULL | Apellido del cliente. |
-    | `telefono` | VARCHAR(20) | — | Número de contacto telefónico. |
+    | `teléfono` | VARCHAR(20) | — | Número de contacto telefónico. |
     | `correo` | VARCHAR(100) | — | Correo electrónico del cliente. |
-    | `edad` | INT | — | Edad del cliente en años. Se recomienda agregar `CHECK (edad >= 18)` para cumplir regulación. |
+    | `edad` | INT | — | Edad del cliente en años. Se recomienda agregar `CHECK (edad >= 18)` para cumplir la regulación. |
   </Accordion>
 
   <Accordion title="juego">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
     | `idJuego` | INT | PK, AUTO_INCREMENT | Identificador del tipo de juego. |
-    | `nombreJuego` | VARCHAR(100) | — | Nombre del juego (ej. Blackjack, Ruleta, Póker). |
+    | `tipoJuego` | VARCHAR(50) | — | Categoría del juego (ej. `mesa`, `maquina`, `electronico`). |
+    | `nombre` | VARCHAR(100) | — | Nombre comercial del juego (ej. Blackjack, Ruleta, Póker). |
     | `descripcion` | TEXT | — | Descripción general del juego. |
-    | `reglas` | TEXT | — | Reglamento detallado del juego. |
+    | `idCasino` | INT | FK → casino | Casino al que pertenece el juego. |
   </Accordion>
 
-  <Accordion title="mesa">
+  <Accordion title="torneo">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
-    | `idMesa` | INT | PK, AUTO_INCREMENT | Identificador interno de la mesa. |
-    | `numeroMesa` | INT | — | Número visible de la mesa en el piso del casino. |
-    | `capacidadMaxima` | INT | — | Máximo de jugadores simultáneos en la mesa. |
-    | `estado` | VARCHAR(50) | — | Estado operacional: `activa`, `en mantenimiento`, `cerrada`. |
-    | `idJuego` | INT | FK → juego | Juego asignado a la mesa. |
+    | `idTorneo` | INT | PK, AUTO_INCREMENT | Identificador del torneo. |
+    | `premio` | DECIMAL(10,2) | — | Valor monetario del premio del torneo. |
+    | `fechaHoraInicio` | DATETIME | — | Fecha y hora de inicio del torneo. |
+    | `fechaHoraFinal` | DATETIME | — | Fecha y hora de cierre del torneo. |
+    | `estado` | VARCHAR(50) | — | Estado del torneo: `activo`, `finalizado`, `cancelado`. |
+    | `capacidad` | INT | — | Máximo de participantes admitidos. |
+    | `numParticipantes` | INT | — | Cantidad actual de participantes inscritos. |
+    | `idCasino` | INT | FK → casino | Casino que organiza el torneo. |
   </Accordion>
 
   <Accordion title="sesionjuego">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
     | `idSesion` | INT | PK, AUTO_INCREMENT | Identificador de la sesión de juego. |
+    | `idJuego` | INT | FK → juego | Juego que se disputa en la sesión. |
     | `idCliente` | INT | FK → cliente | Cliente que participa en la sesión. |
-    | `idMesa` | INT | FK → mesa | Mesa en la que se desarrolla la sesión. |
     | `fechaHoraInicio` | DATETIME | — | Marca de tiempo de inicio de la sesión. |
-    | `fechaHoraFin` | DATETIME | — | Marca de tiempo de fin; `NULL` si la sesión está activa. |
+    | `fechaHoraFinal` | DATETIME | — | Marca de tiempo de fin; `NULL` si la sesión está activa. |
+    | `idEmpleado` | INT | FK → empleado | Empleado (crupier/supervisor) que atiende la sesión. |
+    | `idTorneo` | INT | FK → torneo | Torneo al que pertenece la sesión, si aplica. |
   </Accordion>
 
   <Accordion title="apuesta">
@@ -253,42 +449,135 @@ ORDER BY resumen.total_apostado DESC;
     | `montoGanancia` | DECIMAL(10,2) | — | Monto recibido por el cliente si ganó; `0` o `NULL` si perdió. |
   </Accordion>
 
-  <Accordion title="empleado">
+  <Accordion title="habitacion">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
-    | `idEmpleado` | INT | PK, AUTO_INCREMENT | Identificador interno del empleado. |
-    | `cedEmpleado` | VARCHAR(20) | — | Cédula o documento de identidad del empleado. |
-    | `nombre` | VARCHAR(100) | — | Primer nombre del empleado. |
-    | `apellido` | VARCHAR(100) | — | Apellido del empleado. |
-    | `cargo` | VARCHAR(50) | — | Cargo o rol desempeñado (ej. crupier, supervisor, cajero). |
-    | `salario` | DECIMAL(10,2) | — | Salario mensual del empleado. |
-    | `idCasino` | INT | FK → casino | Casino al que está asignado el empleado. |
+    | `idHabitacion` | INT | PK, AUTO_INCREMENT | Identificador de la habitación. |
+    | `capacidad` | INT | NOT NULL | Número de personas que admite la habitación. |
+    | `tipo` | VARCHAR(50) | NOT NULL | Tipo de habitación (sencilla, doble, suite, etc.). |
+    | `estado` | VARCHAR(50) | NOT NULL | Estado operacional: `disponible`, `ocupada`, `en mantenimiento`. |
+  </Accordion>
+
+  <Accordion title="reservahabitacion">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idReserva` | INT | PK, AUTO_INCREMENT | Identificador de la reserva. |
+    | `idHabitacion` | INT | FK → habitacion | Habitación reservada. |
+    | `idCliente` | INT | FK → cliente | Cliente que realiza la reserva. |
+    | `idMetodoPago` | INT | FK → metodopago | Método de pago utilizado. |
+    | `fechaHoraInicio` | DATETIME | — | Inicio de la estadía. |
+    | `fechaHoraFinal` | DATETIME | — | Fin de la estadía. |
+    | `descripción` | TEXT | — | Observaciones o notas de la reserva. |
+    | `tarifaxproductoBarato` | DECIMAL(10,2) | — | Tarifa unitaria de productos de categoría baja. |
+    | `tarifaxproductoMedio` | DECIMAL(10,2) | — | Tarifa unitaria de productos de categoría media. |
+    | `tarifaxproductoCaro` | DECIMAL(10,2) | — | Tarifa unitaria de productos de categoría alta. |
+    | `tarifaXdia` | DECIMAL(10,2) | — | Tarifa diaria de la habitación. |
+    | `total` | DECIMAL(10,2) | — | Valor total cobrado por la reserva. |
+    | `idEmpleado` | INT | FK → empleado | Empleado que gestionó el check-in. |
+    | `nProdBarato` | INT | — | Cantidad de productos baratos consumidos. |
+    | `nProdMedio` | INT | — | Cantidad de productos medios consumidos. |
+    | `nProdCaro` | INT | — | Cantidad de productos caros consumidos. |
+  </Accordion>
+
+  <Accordion title="parqueadero">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idParqueadero` | INT | PK, AUTO_INCREMENT | Identificador del parqueadero. |
+    | `motosLibre` | INT | — | Espacios disponibles para motos. |
+    | `carrosLibre` | INT | — | Espacios disponibles para carros. |
+    | `capacidad` | INT | — | Capacidad total del parqueadero. |
   </Accordion>
 
   <Accordion title="compraticket">
     | Columna | Tipo | Restricciones | Descripción |
     |---|---|---|---|
-    | `idCompra` | INT | PK, AUTO_INCREMENT | Identificador de la transacción de compra. |
-    | `idCliente` | INT | FK → cliente | Cliente que realiza la compra. |
-    | `idServicio` | INT | — | Identificador del servicio adquirido (referencia a tabla de servicios no incluida en este fragmento). |
-    | `fecha` | DATETIME | — | Fecha y hora de la compra. |
-    | `monto` | DECIMAL(10,2) | — | Valor pagado por el servicio. |
+    | `idCompra` | INT | PK, AUTO_INCREMENT | Identificador del ticket de parqueadero. |
+    | `idCliente` | INT | FK → cliente (ON UPDATE CASCADE) | Cliente al que se le emite el ticket. |
+    | `idParqueadero` | INT | FK → parqueadero (ON UPDATE CASCADE) | Parqueadero donde se registra el vehículo. |
+    | `placa` | VARCHAR(20) | — | Placa del vehículo. |
+    | `tipoVehiculo` | VARCHAR(50) | — | Tipo de vehículo: `carro`, `moto`, `bicicleta`. |
+    | `tarifaxhora` | DECIMAL(10,2) | — | Tarifa aplicada por hora de permanencia. |
+    | `fechaHoraInicio` | DATETIME | — | Hora de ingreso del vehículo. |
+    | `fechaHoraFinal` | DATETIME | — | Hora de salida del vehículo. |
+    | `total` | DECIMAL(10,2) | — | Valor total cobrado por el servicio de parqueo. |
+    | `estado` | VARCHAR(50) | — | Estado del ticket: `activo`, `finalizado`, `cancelado`. |
+    | `idMetodoPago` | INT | FK → metodopago (ON UPDATE CASCADE) | Método de pago empleado. |
+    | `idEmpleado` | INT | FK → empleado (ON UPDATE CASCADE) | Empleado que registra la transacción. |
+  </Accordion>
+
+  <Accordion title="metodopago">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idPago` | INT | PK, AUTO_INCREMENT | Identificador del método de pago. |
+    | `tipoPago` | VARCHAR(50) | — | Tipo de pago: `efectivo`, `tarjeta`, `transferencia`. |
+    | `datosPago` | TEXT | — | Datos adicionales del método (últimos 4 dígitos, banco, etc.). |
+  </Accordion>
+
+  <Accordion title="token">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idToken` | INT | PK, AUTO_INCREMENT | Identificador del token. |
+    | `valor` | DECIMAL(10,2) | — | Valor monetario equivalente del token. |
+    | `tipoToken` | VARCHAR(50) | — | Categoría del token (bronce, plata, oro, etc.). |
+  </Accordion>
+
+  <Accordion title="transacciontoken">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idTransaccion` | INT | PK, AUTO_INCREMENT | Identificador de la transacción. |
+    | `idToken` | INT | FK → token (ON UPDATE CASCADE) | Token involucrado en la transacción. |
+    | `idCliente` | INT | FK → cliente (ON UPDATE CASCADE) | Cliente que compra o canjea tokens. |
+    | `tipoTransaccion` | VARCHAR(50) | — | Tipo: `compra`, `canje`, `transferencia`. |
+    | `cobro` | DECIMAL(10,2) | — | Monto cobrado o debitado en la transacción. |
+    | `cantidad` | INT | — | Cantidad de tokens involucrados. |
+    | `fechaHora` | DATETIME | — | Fecha y hora exacta de la transacción. |
+    | `idMetodoPago` | INT | FK → metodopago (ON UPDATE CASCADE) | Método de pago utilizado. |
+    | `idEmpleado` | INT | FK → empleado (ON UPDATE CASCADE) | Empleado que gestiona la transacción. |
+  </Accordion>
+
+  <Accordion title="maquinaexpendedora">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `numSerie` | INT | PK | Número de serie de la máquina. |
+    | `capacidad` | INT | — | Capacidad de productos que puede almacenar. |
+    | `montoDisponible` | DECIMAL(10,2) | — | Dinero disponible en la máquina para cambio. |
+    | `tipo` | VARCHAR(50) | — | Tipo de máquina (bebidas, snacks, tokens). |
+  </Accordion>
+
+  <Accordion title="operador">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idOperador` | INT | PK, AUTO_INCREMENT | Identificador del operador externo. |
+    | `cedOperador` | VARCHAR(20) | — | Cédula del operador. |
+    | `nombre` | VARCHAR(100) | — | Nombre del operador o representante. |
+    | `nomEmpresa` | VARCHAR(100) | — | Nombre de la empresa operadora. |
+  </Accordion>
+
+  <Accordion title="operadorxmaquina">
+    | Columna | Tipo | Restricciones | Descripción |
+    |---|---|---|---|
+    | `idOperadorMaquina` | INT | PK, AUTO_INCREMENT | Identificador del registro de operación. |
+    | `fecha` | DATE | — | Fecha del servicio o mantenimiento. |
+    | `costo` | DECIMAL(10,2) | — | Costo del servicio prestado. |
+    | `descripcion` | TEXT | — | Descripción del servicio o mantenimiento realizado. |
+    | `maquinaExp` | INT | FK → maquinaexpendedora (ON UPDATE CASCADE) | Máquina a la que se le prestó el servicio. |
+    | `idOperador` | INT | FK → operador (ON UPDATE CASCADE) | Operador que realizó el servicio. |
   </Accordion>
 </AccordionGroup>
 
 ## Posibles Extensiones del Esquema
 
 <CardGroup cols={2}>
-  <Card title="Tabla de Servicios" icon="concierge-bell">
-    Agregar una tabla `servicio(idServicio, nombreServicio, descripcion, precio)` y enlazarla correctamente con `compraticket` mediante FK para resolver la referencia actualmente implícita.
-  </Card>
   <Card title="Restricción de Edad" icon="shield-halved">
     Añadir `CHECK (edad >= 18)` en la tabla `cliente` para garantizar que el sistema no admita menores de edad, cumpliendo la regulación de casinos en Colombia.
   </Card>
-  <Card title="Historial de Estados de Mesa" icon="clock-rotate-left">
-    Crear una tabla `historial_estado_mesa(id, idMesa, estado, fechaCambio, motivo)` para auditar los cambios de estado y calcular tiempos de disponibilidad.
+  <Card title="Historial de Estados de Habitación" icon="clock-rotate-left">
+    Crear una tabla `historial_estado_habitacion(id, idHabitacion, estado, fechaCambio, motivo)` para auditar los cambios de estado y calcular tiempos de disponibilidad.
   </Card>
   <Card title="Integración pgvector" icon="magnifying-glass">
-    Agregar una columna `embedding vector(384)` en la tabla `juego` para permitir búsqueda semántica de juegos similares a partir de su descripción o reglas en lenguaje natural.
+    Agregar una columna `embedding vector(384)` en la tabla `juego` para permitir búsqueda semántica de juegos similares a partir de su descripción en lenguaje natural.
+  </Card>
+  <Card title="Tabla de Servicios del Hotel" icon="concierge-bell">
+    Agregar una tabla `servicio(idServicio, nombre, descripcion, precio)` para registrar servicios del hotel (spa, restaurante, bar) y relacionarla con los clientes hospedados.
   </Card>
 </CardGroup>

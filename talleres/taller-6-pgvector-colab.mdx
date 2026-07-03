@@ -1,7 +1,7 @@
 ---
-title: "Taller 6: Bases de datos vectoriales con pgvector y Neon en Colab"
+title: "Taller 6: pgvector y búsqueda vectorial con Neon en Colab"
 sidebarTitle: "Taller 6 – pgvector"
-description: "Implementa búsqueda semántica con pgvector en una base de datos PostgreSQL Neon usando Google Colab: chunking de texto, embeddings y consultas de similitud vectorial."
+description: "Habilita pgvector en Neon, genera embeddings con sentence-transformers en Google Colab y ejecuta consultas de similitud vectorial con chunking y SQL."
 ---
 
 Las bases de datos vectoriales han emergido como una pieza fundamental en las arquitecturas modernas de inteligencia artificial. A diferencia de las bases de datos relacionales tradicionales —que sobresalen en consultas estructuradas, transacciones y relaciones entre entidades—, las bases de datos vectoriales permiten almacenar y consultar **representaciones numéricas de significado semántico**. Esta capacidad las hace indispensables en aplicaciones como búsqueda semántica, sistemas de recomendación y, sobre todo, en patrones RAG (*Retrieval Augmented Generation*) donde un modelo de lenguaje necesita recuperar contexto relevante antes de generar una respuesta. En este taller aprenderás a habilitar `pgvector` en una instancia PostgreSQL serverless de Neon, a generar embeddings desde un notebook de Google Colab y a ejecutar consultas de similitud vectorial directamente en SQL.
@@ -60,12 +60,13 @@ RAG es un patrón arquitectónico que combina recuperación de información con 
     ```
   </Step>
 
-  <Step title="Abrir el notebook de Google Colab del profesor">
-    El notebook del profesor está disponible en el repositorio del curso. Ábrelo directamente en Google Colab haciendo clic en el enlace correspondiente de la sección de recursos. El notebook contiene todas las celdas necesarias para instalar dependencias, conectarse a Neon y ejecutar el pipeline completo.
+  <Step title="Abrir el notebook de Google Colab">
+    Existen dos versiones del notebook para este taller. Ábrela directamente en Google Colab con un clic:
 
-    <Note>
-      El enlace al notebook de Colab se publica en el repositorio del curso y en el espacio de la asignatura en el LMS institucional. Si no tienes acceso, contacta al profesor antes de la sesión del taller.
-    </Note>
+    - **Notebook del profesor (referencia):** [https://colab.research.google.com/drive/1Q2d_XpzW1IlHkZlY6TyxyD7CxyEA6jdw](https://colab.research.google.com/drive/1Q2d_XpzW1IlHkZlY6TyxyD7CxyEA6jdw)
+    - **Notebook del estudiante (para trabajar):** [https://colab.research.google.com/drive/1_2LkuJWVDV-IRPP7RCgdegnV_w9osQfI?usp=sharing](https://colab.research.google.com/drive/1_2LkuJWVDV-IRPP7RCgdegnV_w9osQfI?usp=sharing)
+
+    El notebook contiene todas las celdas necesarias para instalar dependencias, conectarse a Neon y ejecutar el pipeline completo. Usa la versión del estudiante para completar el taller; la versión del profesor sirve como referencia de solución.
   </Step>
 
   <Step title="Conectar Colab a tu base de datos Neon">
@@ -172,8 +173,15 @@ El parámetro `chunk_size` controla cuántas palabras tiene cada fragmento, y `o
 
 La ventaja de usar `pgvector` sobre una base de datos vectorial dedicada (como Pinecone o Weaviate) es que puedes combinar ambos paradigmas en una sola base de datos. Por ejemplo, puedes filtrar documentos por fecha o autor (SQL relacional) y luego buscar el más similar semánticamente dentro de ese subconjunto (pgvector), todo en una sola consulta.
 
-## Recursos del taller
+## Notebooks del taller
+
+Los dos notebooks del taller están disponibles públicamente en Google Colab. Haz clic en el enlace para abrirlos directamente en tu navegador sin necesidad de descargar nada.
+
+| Versión | Enlace | Uso |
+|---------|--------|-----|
+| Profesor (solución completa) | [Abrir en Colab](https://colab.research.google.com/drive/1Q2d_XpzW1IlHkZlY6TyxyD7CxyEA6jdw) | Referencia y demostración en clase |
+| Estudiante (versión de trabajo) | [Abrir en Colab](https://colab.research.google.com/drive/1_2LkuJWVDV-IRPP7RCgdegnV_w9osQfI?usp=sharing) | Completar durante la sesión del taller |
 
 <Note>
-  El notebook de Google Colab del profesor está disponible en el repositorio del curso. Contiene el corpus de ejemplo, todas las celdas del pipeline (instalación de dependencias, conexión a Neon, chunking, generación de embeddings e inserción), y las consultas de demostración. Accede al repositorio del curso para obtener el enlace directo que abre el notebook en Colab con un solo clic.
+  Antes de ejecutar el notebook, asegúrate de haber completado los pasos de configuración: cuenta en Neon activa, base de datos creada y extensión `vector` habilitada. Pega tu cadena de conexión en la variable `DATABASE_URL` de la primera celda de configuración.
 </Note>

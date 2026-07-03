@@ -1,7 +1,7 @@
 ---
 title: "Práctica DDL: Diseño y creación de esquemas en PostgreSQL"
 sidebarTitle: "Práctica DDL"
-description: "Práctica de DDL en PostgreSQL: crea y modifica tablas con ALTER TABLE, agrega restricciones CHECK, UNIQUE y FOREIGN KEY, y practica tablas con claves compuestas."
+description: "Práctica DDL en PostgreSQL: crea y altera tablas con restricciones CHECK, UNIQUE y FOREIGN KEY, incluyendo claves compuestas y referencias entre tablas."
 ---
 
 El Lenguaje de Definición de Datos (*Data Definition Language*, DDL) es el subconjunto de SQL que permite crear, modificar y eliminar estructuras dentro de una base de datos. A diferencia de las sentencias DML que manipulan filas, las instrucciones DDL operan sobre objetos del esquema: tablas, índices, secuencias y restricciones. En esta práctica trabajarás progresivamente con `CREATE TABLE`, `ALTER TABLE` y la definición de restricciones de integridad (`PRIMARY KEY`, `FOREIGN KEY`, `CHECK`, `UNIQUE`) en PostgreSQL, prestando especial atención a las claves compuestas y a las referencias entre tablas.
@@ -113,20 +113,20 @@ CREATE TABLE IF NOT EXISTS table2 (
 ### Poblar las tablas con datos de prueba
 
 ```sql
--- Insertar en tabla1 primero (no tiene dependencias)
-INSERT INTO table1 (a, b) VALUES ('X', '1'), ('Y', '2'), ('Z', '3');
+-- Insertar en table1 primero (no tiene dependencias)
+INSERT INTO table1 (a, b) VALUES ('a', 'b');
 
 -- Insertar en table3 (no tiene dependencias)
-INSERT INTO table3 (c, d, e) VALUES ('A', 1, 'α'), ('A', 2, 'β'), ('B', 1, 'γ');
+INSERT INTO table3 (c, d, e) VALUES ('x', 1, 'w'), ('x', 2, 'z');
 
 -- Insertar en table2 (debe referenciar valores existentes en table1 y table3)
-INSERT INTO table2 (a, c, d) VALUES ('X', 'A', 1), ('Y', 'A', 2), ('Z', 'B', 1);
+INSERT INTO table2 (a, c, d) VALUES ('a', 'x', 1), ('a', 'x', 2);
 
 -- Esto fallará (viola FK hacia table1):
--- INSERT INTO table2 (a, c, d) VALUES ('W', 'A', 1);
+-- INSERT INTO table2 (a, c, d) VALUES ('z', 'x', 1);
 
 -- Esto también fallará (viola FK compuesta hacia table3):
--- INSERT INTO table2 (a, c, d) VALUES ('X', 'C', 9);
+-- INSERT INTO table2 (a, c, d) VALUES ('a', 'y', 9);
 ```
 
   </Tab>

@@ -11,16 +11,16 @@ Las bases de datos relacionales constituyen el fundamento tecnológico de la may
 El programa está organizado en tres grandes ejes: **teoría**, **talleres prácticos** y **proyectos de referencia**. Cada eje se retroalimenta con los demás: la teoría justifica las decisiones de diseño, los talleres consolidan las habilidades técnicas y los proyectos demuestran la aplicación integral de los conceptos en contextos reales.
 
 <CardGroup cols={2}>
-  <Card title="Teoría" icon="book-open">
+  <Card title="Teoría" icon="book-open" href="teoria/evolucion-bases-datos">
     Evolución histórica de los sistemas de gestión de bases de datos, modelo Entidad-Relación y EER, dependencias funcionales, formas normales (1FN–FNBC) y fundamentos del modelo relacional.
   </Card>
-  <Card title="Talleres SQL" icon="database">
+  <Card title="Talleres SQL" icon="database" href="talleres/taller-3-ddl-dml-supabase">
     DDL y DML con PostgreSQL en Supabase: creación de tablas, restricciones (`PRIMARY KEY`, `FOREIGN KEY`, `CHECK`), consultas `SELECT`, subconsultas, vistas y transacciones.
   </Card>
-  <Card title="Álgebra Relacional" icon="sigma">
+  <Card title="Álgebra Relacional" icon="sigma" href="talleres/algebra-relacional-lectores">
     Ejercicios con los operadores formales: selección (σ), proyección (π), reunión natural (⨝), renombramiento (ρ), unión (∪), intersección (∩), diferencia (−) y división (÷), usando la herramienta RelaX.
   </Card>
-  <Card title="Bases de datos vectoriales" icon="microchip">
+  <Card title="Bases de datos vectoriales" icon="microchip" href="talleres/taller-6-pgvector-colab">
     Introducción a pgvector con Neon en Google Colab: representación de datos como vectores de alta dimensión, índices HNSW e IVFFlat, y búsqueda por similitud de coseno para aplicaciones de IA.
   </Card>
 </CardGroup>
@@ -35,11 +35,12 @@ Los talleres están diseñados para trasladar la teoría al código SQL ejecutab
 
 | Taller | Tema principal |
 |--------|---------------|
-| Taller 1 | Modelado EER con draw.io |
-| Taller 2 | Álgebra relacional con RelaX |
-| Taller 3 | DDL/DML inicial en Supabase |
-| Taller 4 | Consultas avanzadas y vistas |
-| Taller 5 | Bases de datos vectoriales con pgvector |
+| [Taller 1](talleres/taller-1-modelamiento-eer) | Modelado EER con draw.io |
+| [Taller 2](talleres/taller-2-gestion-musical) | Gestión musical: esquema relacional y consultas |
+| [Taller 3](talleres/taller-3-ddl-dml-supabase) | DDL/DML inicial en Supabase |
+| [Taller 4](talleres/taller-4-dml-sentencias) | DML: sentencias de manipulación de datos |
+| [Taller 5](talleres/taller-5-integridad-restricciones) | Integridad referencial y restricciones |
+| [Taller 6](talleres/taller-6-pgvector-colab) | Bases de datos vectoriales con pgvector |
 
 ### Proyectos de referencia
 
@@ -103,5 +104,5 @@ El curso emplea la notación matemática estándar para los operadores del álge
 | División | R ÷ S | Filas de R asociadas con todas las filas de S |
 
 <Note>
-  Los ejercicios de álgebra relacional del Taller 2 están disponibles en formato RelaX (`.relaX`) en el repositorio del curso. Cada ejercicio incluye las relaciones de entrada y la solución esperada para que puedas verificar tus respuestas.
+  Los ejercicios de álgebra relacional del curso están disponibles en formato RelaX (`.relaX`) en el repositorio del curso. Cada ejercicio incluye las relaciones de entrada y la solución esperada para que puedas verificar tus respuestas. Consulta los talleres de [Lectores](talleres/algebra-relacional-lectores), [Proveedores](talleres/algebra-relacional-proveedores) y [Universidad](talleres/algebra-relacional-universidad) para los enunciados y soluciones.
 </Note>

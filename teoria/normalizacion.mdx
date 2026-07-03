@@ -1,7 +1,7 @@
 ---
 title: "Normalización de bases de datos: 1FN, 2FN, 3FN y BCNF"
 sidebarTitle: "Normalización"
-description: "Guía de normalización de bases de datos relacionales: primera, segunda y tercera forma normal, BCNF y dependencias funcionales con ejemplos prácticos en SQL."
+description: "Guía de normalización relacional: 1FN, 2FN, 3FN y BCNF explicadas con dependencias funcionales y ejemplos SQL del esquema universitario del curso."
 ---
 
 La **normalización** es el proceso sistemático de organizar los atributos y tablas de una base de datos relacional para **minimizar la redundancia de datos** y **eliminar las anomalías de actualización, inserción y eliminación**. Una base de datos no normalizada puede contener el mismo dato en múltiples lugares: si ese dato cambia, hay que actualizarlo en todos lados simultáneamente, y si alguna actualización falla, la base de datos queda en un estado inconsistente. La teoría de la normalización, desarrollada por Edgar F. Codd y posteriormente extendida por otros investigadores, ofrece un conjunto de reglas formales —las **formas normales**— que guían el diseño hacia esquemas más robustos, predecibles y fáciles de mantener.
@@ -21,7 +21,7 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
 | `cedula → nombre, apellido` | La cédula de un alumno determina unívocamente su nombre y apellido |
 | `codcurso → nombrecurso, num_horas` | El código del curso determina su nombre y duración |
 | `codcurso → cedprofesor` | Cada curso tiene asignado exactamente un profesor |
-| `{cedula, codcurso} → nota_final` | La nota final depende de la combinación alumno-curso |
+| `{cedula_alumno, codcurso}` → inscripción | La inscripción depende de la combinación alumno-curso |
 
 <Note>
   La dependencia funcional es una restricción semántica del dominio del negocio, **no** algo que se infiere automáticamente de los datos actuales. Que en este momento dos alumnos tengan la misma dirección no significa que `direccion → cedula`; hay que entender las reglas del negocio.
@@ -106,18 +106,18 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
 
     **Tabla que viola 2FN:**
 
-    Supongamos que consolidamos la inscripción en una sola tabla con PK compuesta `{cedula, codcurso}`:
+    Supongamos que consolidamos la inscripción en una sola tabla con PK compuesta `{cedula_alumno, codcurso}`:
 
-    | cedula | codcurso | nombre_alumno | nombrecurso | num_horas | nota_final |
-    |--------|----------|---------------|-------------|-----------|------------|
-    | 101 | C01 | Ana | SQL Avanzado | 40 | 4.5 |
-    | 101 | C02 | Ana | Modelado ER | 30 | 3.8 |
-    | 102 | C01 | Luis | SQL Avanzado | 40 | 4.0 |
+    | cedula_alumno | codcurso | nombre_alumno | nombrecurso      | num_horas |
+    |---------------|----------|---------------|------------------|-----------|
+    | 10000001      | 101      | Ana           | Base de Datos I  | 100.1     |
+    | 10000001      | 102      | Ana           | Programacion Web | 150       |
+    | 10000002      | 101      | Pedro         | Base de Datos I  | 100.1     |
 
     **Dependencias parciales:**
-    - `cedula → nombre_alumno` (depende solo de cedula, no de la PK completa)
+    - `cedula_alumno → nombre_alumno` (depende solo de cedula_alumno, no de la PK completa)
     - `codcurso → nombrecurso, num_horas` (depende solo de codcurso)
-    - `{cedula, codcurso} → nota_final` (depende correctamente de toda la PK)
+    - `{cedula_alumno, codcurso}` identifica correctamente cada inscripción
 
     **Solución — descomponer en tablas con dependencias completas:**
 
@@ -145,13 +145,12 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
       CONSTRAINT pk_cursos PRIMARY KEY (codcurso)
     );
 
-    -- La nota_final depende de la combinación alumno + curso
+    -- La combinación alumno + curso identifica la inscripción
     CREATE TABLE alumno_curso (
-      cedula      VARCHAR(15)   NOT NULL,
-      codcurso    INTEGER       NOT NULL,
-      nota_final  NUMERIC(3,1),
-      CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula, codcurso),
-      CONSTRAINT fk_ac_alumno  FOREIGN KEY (cedula)
+      cedula_alumno VARCHAR(15)  NOT NULL,
+      codcurso      INTEGER      NOT NULL,
+      CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula_alumno, codcurso),
+      CONSTRAINT fk_ac_alumno  FOREIGN KEY (cedula_alumno)
         REFERENCES alumnos(cedula),
       CONSTRAINT fk_ac_curso   FOREIGN KEY (codcurso)
         REFERENCES cursos(codcurso)
@@ -168,15 +167,15 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
 
     **Tabla que viola 3FN:**
 
-    | codcurso | nombrecurso | cedprofesor | nombre_profesor | departamento_profesor |
-    |----------|-------------|-------------|-----------------|----------------------|
-    | C01 | SQL Avanzado | P01 | Martínez | Ingeniería |
-    | C02 | Modelado ER | P02 | Rodríguez | Sistemas |
-    | C03 | NoSQL | P01 | Martínez | Ingeniería |
+    | codcurso | nombrecurso      | cedprofesor | nombre_profesor | titulo_profesor           |
+    |----------|------------------|-------------|-----------------|---------------------------|
+    | 101      | Base de Datos I  | 12345678    | Juan            | Ingeniero de Sistemas     |
+    | 102      | Programacion Web | 23456789    | Maria           | Licenciada en Matematicas |
+    | 103      | Redes de Datos   | 12345678    | Juan            | Ingeniero de Sistemas     |
 
     **Dependencia transitiva identificada:**
     ```
-    codcurso → cedprofesor → nombre_profesor, departamento_profesor
+    codcurso → cedprofesor → nombre_profesor, titulo_profesor
     ```
     `nombre_profesor` no depende directamente de `codcurso` (la PK), sino transitivamente a través de `cedprofesor`.
 
@@ -185,12 +184,14 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
     ```sql
     -- Tabla de profesores: atributos propios del profesor
     CREATE TABLE profesores (
-      cedprofesor        VARCHAR(15) NOT NULL,
-      nombre             VARCHAR(50) NOT NULL,
-      apellido           VARCHAR(50) NOT NULL,
-      departamento       VARCHAR(80),
-      titulo_academico   VARCHAR(50),
-      CONSTRAINT pk_profesores PRIMARY KEY (cedprofesor)
+      cedula       VARCHAR(15)    NOT NULL,
+      nombre       VARCHAR(50)    NOT NULL,
+      apellido     VARCHAR(50)    NOT NULL,
+      direccion    VARCHAR(100),
+      titulo       VARCHAR(80),
+      cuota_hora   NUMERIC(10,2),
+      edad         INTEGER,
+      CONSTRAINT pk_profesores PRIMARY KEY (cedula)
     );
 
     -- Tabla de cursos: solo referencia al profesor mediante FK
@@ -205,7 +206,7 @@ Antes de aplicar cualquier forma normal es necesario entender el concepto centra
       num_horas    NUMERIC(5,2),
       CONSTRAINT pk_cursos PRIMARY KEY (codcurso),
       CONSTRAINT fk_curso_prof FOREIGN KEY (cedprofesor)
-        REFERENCES profesores(cedprofesor)
+        REFERENCES profesores(cedula)
     );
     ```
 
@@ -241,12 +242,14 @@ El siguiente DDL representa el esquema del curso completamente normalizado hasta
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS profesores (
-  cedprofesor      VARCHAR(15)  NOT NULL,
-  nombre           VARCHAR(50)  NOT NULL,
-  apellido         VARCHAR(50)  NOT NULL,
-  departamento     VARCHAR(80),
-  titulo_academico VARCHAR(50),
-  CONSTRAINT pk_profesores PRIMARY KEY (cedprofesor)
+  cedula       VARCHAR(15)   NOT NULL,
+  nombre       VARCHAR(50)   NOT NULL,
+  apellido     VARCHAR(50)   NOT NULL,
+  direccion    VARCHAR(100),
+  titulo       VARCHAR(80),
+  cuota_hora   NUMERIC(10,2),
+  edad         INTEGER,
+  CONSTRAINT pk_profesores PRIMARY KEY (cedula)
 );
 
 CREATE TABLE IF NOT EXISTS alumnos (
@@ -270,15 +273,14 @@ CREATE TABLE IF NOT EXISTS cursos (
   num_horas    NUMERIC(5,2),
   CONSTRAINT pk_cursos         PRIMARY KEY (codcurso),
   CONSTRAINT fk_curso_profesor FOREIGN KEY (cedprofesor)
-    REFERENCES profesores(cedprofesor)
+    REFERENCES profesores(cedula)
 );
 
 CREATE TABLE IF NOT EXISTS alumno_curso (
-  cedula     VARCHAR(15)  NOT NULL,
-  codcurso   INTEGER      NOT NULL,
-  nota_final NUMERIC(3,1),
-  CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula, codcurso),
-  CONSTRAINT fk_ac_alumno    FOREIGN KEY (cedula)
+  cedula_alumno VARCHAR(15)  NOT NULL,
+  codcurso      INTEGER      NOT NULL,
+  CONSTRAINT pk_alumno_curso PRIMARY KEY (cedula_alumno, codcurso),
+  CONSTRAINT fk_ac_alumno    FOREIGN KEY (cedula_alumno)
     REFERENCES alumnos(cedula),
   CONSTRAINT fk_ac_curso     FOREIGN KEY (codcurso)
     REFERENCES cursos(codcurso)

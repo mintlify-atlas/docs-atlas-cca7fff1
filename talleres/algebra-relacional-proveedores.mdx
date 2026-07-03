@@ -1,7 +1,7 @@
 ---
 title: "Álgebra Relacional: Taller Proveedores, Piezas y Proyectos"
 sidebarTitle: "Taller Proveedores"
-description: "Ejercicios de álgebra relacional con el dataset clásico S-P-J (Proveedores, Piezas, Proyectos): selección, proyección, join y producto cartesiano en RelaX."
+description: "Ejercicios de álgebra relacional con el dataset S-P-J: selección, proyección, join y producto cartesiano sobre Proveedores, Piezas y Proyectos en RelaX."
 ---
 
 El dataset **S-P-J** (Suppliers–Parts–Jobs) es uno de los ejemplos canónicos de la teoría relacional, introducido por C. J. Date en su texto clásico *An Introduction to Database Systems*. Modela una cadena de suministro simplificada donde proveedores (S) surten piezas (P) a proyectos de construcción (J), y la relación ternaria SPJ registra cada suministro con su cantidad. Su estructura sencilla pero expresiva lo convierte en el punto de partida ideal para practicar selección, proyección, join y producto cartesiano en **RelaX**.
@@ -84,11 +84,21 @@ s:string, p:string, j:string, cant:number
 "S1", "P1", "J5", 700
 "S2", "P3", "J1", 400
 "S2", "P3", "J2", 200
+"S2", "P3", "J3", 200
+"S2", "P3", "J4", 500
+"S2", "P3", "J5", 600
+"S1", "P3", "J6", 400
+"S2", "P3", "J7", 800
+"S2", "P5", "J2", 100
 "S3", "P3", "J1", 200
 "S3", "P4", "J2", 500
 "S4", "P6", "J3", 300
 "S4", "P6", "J7", 300
 "S1", "P3", "J7", 70
+"S1", "P3", "J5", 50
+"S1", "P3", "J4", 40
+"S1", "P3", "J3", 30
+"S1", "P3", "J2", 20
 }
 ```
 

@@ -66,7 +66,7 @@ Esta guía te lleva paso a paso por la configuración de todas las herramientas 
       apellido     VARCHAR(50)  NOT NULL,
       direccion    VARCHAR(100),
       sexo         VARCHAR(1),
-      fecha_nacimiento DATE
+      fecha_nacimiento date
     );
 
     ALTER TABLE alumnos
@@ -77,9 +77,12 @@ Esta guía te lleva paso a paso por la configuración de todas las herramientas 
     ```
 
     <CodeGroup>
-      ```sql Insertar alumno de prueba
+      ```sql Insertar alumnos de prueba
       INSERT INTO alumnos (cedula, nombre, apellido, direccion, sexo, fecha_nacimiento)
-      VALUES ('1234567890', 'María', 'González', 'Calle 45 # 12-30', 'M', '2000-03-15');
+      VALUES
+        ('10000001', 'Ana',   'Soto',    'Calle 1 #2-3',   'M', '2005-03-15'),
+        ('10000002', 'Pedro', 'Duran',   'Carrera 4 #5-6', 'H', '2004-10-20'),
+        ('10000003', 'Carla', 'Mendoza', 'Avenida 7 #8-9', 'M', '2006-01-12');
       ```
 
       ```sql Consultar todos los alumnos
@@ -103,32 +106,32 @@ Esta guía te lleva paso a paso por la configuración de todas las herramientas 
   </Step>
 
   <Step title="Configura RelaX para álgebra relacional">
-    RelaX es una calculadora de álgebra relacional que corre completamente en el navegador. Se usa en el **Taller 2** del curso para resolver consultas con notación formal (σ, π, ⨝, ρ, etc.) sin necesidad de SQL.
+    RelaX es una calculadora de álgebra relacional que corre completamente en el navegador. Se usa en los talleres de álgebra relacional del curso para resolver consultas con notación formal (σ, π, ⨝, ρ, etc.) sin necesidad de SQL.
 
     1. Abre [dbis-uibk.github.io/relax/](https://dbis-uibk.github.io/relax/) en tu navegador.
     2. En el panel izquierdo (**Group editor**) define tus relaciones de prueba. Por ejemplo:
 
-    ```
+    ```text
     group: Curso BD 2026
 
     alumnos = {
       cedula:string, nombre:string, apellido:string, sexo:string
-      '1234567890', 'María',  'González', 'M'
-      '0987654321', 'Carlos', 'Ramírez',  'H'
-      '1122334455', 'Ana',    'Torres',   'M'
+      '10000001', 'Ana',   'Soto',    'M'
+      '10000002', 'Pedro', 'Duran',   'H'
+      '10000003', 'Carla', 'Mendoza', 'M'
     }
 
     inscripciones = {
       cedula:string, curso:string
-      '1234567890', 'BD-2026'
-      '0987654321', 'BD-2026'
+      '10000001', 'BD-2026'
+      '10000002', 'BD-2026'
     }
     ```
 
     3. Haz clic en **Execute group** para cargar las relaciones.
     4. En el panel de consulta escribe una expresión de álgebra relacional:
 
-    ```
+    ```text
     π cedula, nombre, apellido (σ sexo = 'M' (alumnos))
     ```
 
@@ -156,7 +159,7 @@ Esta guía te lleva paso a paso por la configuración de todas las herramientas 
   </Step>
 
   <Step title="(Opcional) Abre Google Colab para el taller de pgvector">
-    El **Taller 5** del curso introduce las bases de datos vectoriales usando la extensión `pgvector` sobre una instancia de PostgreSQL en Neon, orquestada desde un notebook de Python en Google Colab. Este paso es opcional hasta que llegues a ese taller.
+    El **Taller 6** del curso introduce las bases de datos vectoriales usando la extensión `pgvector` sobre una instancia de PostgreSQL en Neon, orquestada desde un notebook de Python en Google Colab. Este paso es opcional hasta que llegues a ese taller.
 
     1. Ve a [colab.research.google.com](https://colab.research.google.com/) e inicia sesión con tu cuenta de Google.
     2. Crea un nuevo notebook (**File > New notebook**) o abre el notebook del taller desde el repositorio del curso.
@@ -212,9 +215,9 @@ Una vez completados los pasos anteriores, tienes todo el entorno listo para el c
 | Herramienta | Uso en el curso | Enlace |
 |-------------|----------------|--------|
 | Supabase | SQL Editor, DDL/DML, Talleres 3 y 4 | [supabase.com](https://supabase.com) |
-| RelaX | Álgebra relacional, Taller 2 | [dbis-uibk.github.io/relax](https://dbis-uibk.github.io/relax/) |
+| RelaX | Álgebra relacional | [dbis-uibk.github.io/relax](https://dbis-uibk.github.io/relax/) |
 | draw.io | Diagramas EER, Taller 1 | [app.diagrams.net](https://app.diagrams.net/) |
-| Google Colab | pgvector, Taller 5 | [colab.research.google.com](https://colab.research.google.com/) |
+| Google Colab | pgvector, Taller 6 | [colab.research.google.com](https://colab.research.google.com/) |
 | Repositorio del curso | Todos los archivos `.sql` y `.drawio` | [github.com/tutosrive/db-relacionales-2026-1](https://github.com/tutosrive/db-relacionales-2026-1) |
 
 <Tip>
